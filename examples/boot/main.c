@@ -3,6 +3,7 @@
 
 volatile ef2_u32 ef2_boot_counter;
 volatile ef2_s32 ef2_video_status;
+volatile ef2_s32 ef2_clear_status;
 
 int main(void)
 {
@@ -13,11 +14,12 @@ int main(void)
     };
 
     ef2_boot_counter = 1;
+    ef2_clear_status = -1;
     ef2_video_status = ef2_video_init(&video);
 
     if (ef2_video_status == 0) {
-        /* Intentionally vivid so a successful boot is unmistakable. */
-        ef2_video_set_background(32, 96, 224);
+        /* Vivid blue framebuffer clear: this is the alpha.2 visual smoke test. */
+        ef2_clear_status = ef2_video_clear(32, 96, 224);
     }
 
     for (;;) {
