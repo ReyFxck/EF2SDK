@@ -4,7 +4,7 @@ description: Resolve, verify and cache the compiler/bootstrap pieces currently n
 runs:
   using: composite
   steps:
-    - name: Resolve official ps2dev release asset
+    - name: Resolve official bootstrap revisions
       id: release
       shell: bash
       env:
@@ -12,28 +12,35 @@ runs:
       run: |
         set -euo pipefail
         asset="ps2dev-ubuntu-latest.tar.gz"
-        metadata="$(curl -fsSL --retry 3 \
+
+        release="$(curl -fsSL --retry 3 \
           -H "Authorization: Bearer ${GH_TOKEN}" \
           -H "Accept: application/vnd.github+json" \
           https://api.github.com/repos/ps2dev/ps2dev/releases/tags/latest)"
 
-        url="$(jq -er --arg name "$asset" '.assets[] | select(.name == $name) | .browser_download_url' <<<"$metadata")"
-        digest="$(jq -er --arg name "$asset" '.assets[] | select(.name == $name) | .digest' <<<"$metadata")"
+        url="$(jq -er --arg name "$asset" '.assets[] | select(.name == $name) | .browser_download_url' <<<"$release")"
+        digest="$(jq -er --arg name "$asset" '.assets[] | select(.name == $name) | .digest' <<<"$release")"
 
         case "$digest" in
           sha256:*) ;;
           *) echo "Unsupported or missing asset digest: $digest" >&2; exit 1 ;;
         esac
 
+        sdk_sha="$(curl -fsSL --retry 3 \
+          -H "Authorization: Bearer ${GH_TOKEN}" \
+          -H "Accept: application/vnd.github+json" \
+          https://api.github.com/repos/ps2dev/ps2sdk/commits/master | jq -er '.sha')"
+
         echo "url=$url" >> "$GITHUB_OUTPUT"
         echo "sha256=${digest#sha256:}" >> "$GITHUB_OUTPUT"
+        echo "sdk_sha=$sdk_sha" >> "$GITHUB_OUTPUT"
 
     - name: Restore EF2 bootstrap cache
       id: cache
       uses: actions/cache@v6
       with:
         path: ${{ runner.temp }}/ef2-ps2dev
-        key: ps2dev-ef2-bootstrap-v2-${{ runner.os }}-${{ steps.release.outputs.sha256 }}
+        key: ps2dev-ef2-bootstrap-v3-${{ runner.os }}-${{ steps.release.outputs.sha256 }}-${{ steps.release.outputs.sdk_sha }}
 
     - name: Download and verify bootstrap bundle
       if: steps.cache.outputs.cache-hit != 'true'
@@ -41,6 +48,7 @@ runs:
       env:
         TOOLCHAIN_URL: ${{ steps.release.outputs.url }}
         TOOLCHAIN_SHA256: ${{ steps.release.outputs.sha256 }}
+        PS2SDK_SHA: ${{ steps.release.outputs.sdk_sha }}
       run: |
         set -euo pipefail
         root="${RUNNER_TEMP}/ef2-ps2dev"
@@ -55,10 +63,16 @@ runs:
 
         test -x "$root/ee/bin/mips64r5900el-ps2-elf-gcc"
         test -x "$root/iop/bin/mipsel-none-elf-gcc"
-        test -f "$root/ps2sdk/iop/Rules.make"
+
+        rm -rf "$root/ps2sdk-src"
+        git init -q "$root/ps2sdk-src"
+        git -C "$root/ps2sdk-src" remote add origin https://github.com/ps2dev/ps2sdk.git
+        git -C "$root/ps2sdk-src" fetch -q --depth 1 origin "$PS2SDK_SHA"
+        git -C "$root/ps2sdk-src" checkout -q FETCH_HEAD
+        test -f "$root/ps2sdk-src/iop/Rules.make"
 
         find "$root" -mindepth 1 -maxdepth 1 \
-          ! -name ee ! -name iop ! -name ps2sdk -exec rm -rf {} +
+          ! -name ee ! -name iop ! -name ps2sdk-src -exec rm -rf {} +
         rm -f "$archive"
 
     - name: Export EF2 bootstrap environment
@@ -68,10 +82,11 @@ runs:
         root="${RUNNER_TEMP}/ef2-ps2dev"
         test -x "$root/ee/bin/mips64r5900el-ps2-elf-gcc"
         test -x "$root/iop/bin/mipsel-none-elf-gcc"
-        test -f "$root/ps2sdk/iop/Rules.make"
+        test -f "$root/ps2sdk-src/iop/Rules.make"
+
         echo "PS2DEV=$root" >> "$GITHUB_ENV"
-        echo "PS2SDK=$root/ps2sdk" >> "$GITHUB_ENV"
-        echo "PS2SDKSRC=$root/ps2sdk" >> "$GITHUB_ENV"
+        echo "PS2SDK=$root/ps2sdk-src" >> "$GITHUB_ENV"
+        echo "PS2SDKSRC=$root/ps2sdk-src" >> "$GITHUB_ENV"
         echo "$root/ee/bin" >> "$GITHUB_PATH"
         echo "$root/iop/bin" >> "$GITHUB_PATH"
-        echo "$root/ps2sdk/bin" >> "$GITHUB_PATH"
+        echo "$root/ps2sdk-src/bin" >> "$GITHUB_PATH"
