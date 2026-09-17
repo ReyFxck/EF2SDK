@@ -28,7 +28,7 @@ jobs:
           docker run --rm \
             -v "$PWD:/src" \
             -w /src \
-            ghcr.io/ps2dev/ps2dev:latest \
+            ps2dev/ps2dev:latest \
             sh -lc 'apk add --no-cache make file zip >/dev/null && make toolchain-info'
 
       - name: Build and verify
@@ -36,7 +36,7 @@ jobs:
           docker run --rm \
             -v "$PWD:/src" \
             -w /src \
-            ghcr.io/ps2dev/ps2dev:latest \
+            ps2dev/ps2dev:latest \
             sh -lc 'apk add --no-cache make file zip >/dev/null && make clean all check'
 
       - name: Package
@@ -44,7 +44,7 @@ jobs:
           docker run --rm \
             -v "$PWD:/src" \
             -w /src \
-            ghcr.io/ps2dev/ps2dev:latest \
+            ps2dev/ps2dev:latest \
             sh -lc 'apk add --no-cache make file zip >/dev/null && make package'
 
       - name: Upload development artifact

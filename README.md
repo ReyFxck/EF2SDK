@@ -41,7 +41,7 @@ Or with the public ps2dev container used by CI:
 docker run --rm \
   -v "$PWD:/src" \
   -w /src \
-  ghcr.io/ps2dev/ps2dev:latest \
+  ps2dev/ps2dev:latest \
   sh -lc 'apk add --no-cache make file && make clean all check'
 ```
 
