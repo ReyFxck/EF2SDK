@@ -24,6 +24,8 @@ EF2SDK does **not** link against PS2SDK in the PoC.
 
 For now, CI borrows the existing R5900 compiler/binutils only as a bootstrap toolchain. The produced ELF is linked with `-nostdlib -nostartfiles -nodefaultlibs` and EF2SDK's own startup/linker files.
 
+CI resolves the current official `ps2dev-ubuntu-latest.tar.gz` release asset, verifies its published SHA-256 digest, caches only the EE toolchain, and places `ee/bin` in `PATH`. PS2SDK headers, startup objects and libraries are not used by the PoC build.
+
 The long-term goal is to reduce external bootstrap dependencies as EF2SDK matures.
 
 ## Build
@@ -33,16 +35,6 @@ With the PS2 EE cross-toolchain in `PATH`:
 ```sh
 make
 make check
-```
-
-Or with the public ps2dev container used by CI:
-
-```sh
-docker run --rm \
-  -v "$PWD:/src" \
-  -w /src \
-  ps2dev/ps2dev:latest \
-  sh -lc 'apk add --no-cache make file && make clean all check'
 ```
 
 The PoC ELF is written to:

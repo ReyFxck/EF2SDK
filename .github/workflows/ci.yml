@@ -23,29 +23,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
+      - name: Setup EE bootstrap toolchain
+        uses: ./.github/actions/setup-ee
+
       - name: Toolchain info
-        run: |
-          docker run --rm \
-            -v "$PWD:/src" \
-            -w /src \
-            ps2dev/ps2dev:latest \
-            sh -lc 'apk add --no-cache make file zip >/dev/null && make toolchain-info'
+        run: make toolchain-info
 
       - name: Build and verify
-        run: |
-          docker run --rm \
-            -v "$PWD:/src" \
-            -w /src \
-            ps2dev/ps2dev:latest \
-            sh -lc 'apk add --no-cache make file zip >/dev/null && make clean all check'
+        run: make clean all check
 
       - name: Package
-        run: |
-          docker run --rm \
-            -v "$PWD:/src" \
-            -w /src \
-            ps2dev/ps2dev:latest \
-            sh -lc 'apk add --no-cache make file zip >/dev/null && make package'
+        run: make package
 
       - name: Upload development artifact
         uses: actions/upload-artifact@v7

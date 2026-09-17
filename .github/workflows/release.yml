@@ -26,13 +26,11 @@ jobs:
             exit 1
           fi
 
+      - name: Setup EE bootstrap toolchain
+        uses: ./.github/actions/setup-ee
+
       - name: Build, verify and package
-        run: |
-          docker run --rm \
-            -v "$PWD:/src" \
-            -w /src \
-            ps2dev/ps2dev:latest \
-            sh -lc 'apk add --no-cache make file zip >/dev/null && make package'
+        run: make package
 
       - name: Publish GitHub Release
         env:
