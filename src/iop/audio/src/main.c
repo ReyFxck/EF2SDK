@@ -16,7 +16,7 @@ IRX_ID("ef2audio", 1, 0);
 #define EF2_LOG(...)            \
     do {                        \
         printf(__VA_ARGS__);    \
-        EF2_LOG(__VA_ARGS__);   \
+        Kprintf(__VA_ARGS__);   \
     } while (0)
 
 static SifRpcDataQueue_t g_rpc_queue;
