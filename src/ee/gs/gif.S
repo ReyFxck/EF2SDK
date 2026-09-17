@@ -2,6 +2,24 @@
     .section .text, "ax", @progbits
     .align 4
 
+    .globl ef2_gif_reset
+    .type ef2_gif_reset, @function
+    .ent ef2_gif_reset
+
+ef2_gif_reset:
+    lui     $8, 0x1000
+    ori     $8, $8, 0x3000
+    li      $9, 1
+    sw      $9, 0($8)
+    sync.p
+    sw      $0, 0($8)
+    sync.p
+    jr      $31
+    nop
+
+    .end ef2_gif_reset
+    .size ef2_gif_reset, .-ef2_gif_reset
+
     .globl ef2_gif_send_qwords
     .type ef2_gif_send_qwords, @function
     .ent ef2_gif_send_qwords
