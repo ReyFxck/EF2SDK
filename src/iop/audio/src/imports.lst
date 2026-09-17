@@ -13,6 +13,10 @@ I_sceSifRegisterRpc
 I_sceSifRpcLoop
 sifcmd_IMPORTS_end
 
+sysmem_IMPORTS_start
+I_Kprintf
+sysmem_IMPORTS_end
+
 thbase_IMPORTS_start
 I_CreateThread
 I_StartThread

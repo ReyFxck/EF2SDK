@@ -222,3 +222,15 @@ PS2 modules: the RPC worker thread itself calls `sceSifInitRpc`,
 A private semaphore makes `_start` wait until registration has completed
 before returning `MODULE_RESIDENT_END`, removing both the scheduler race and
 the nonstandard queue-registration context.
+
+
+## Alpha.10: IOP emulog instrumentation
+
+Alpha.10 adds targeted IOP-side Kprintf tracing with the fixed prefix
+`[EF2AUDIO]`. The trace covers module start, semaphore/thread creation,
+SIFRPC initialization, queue insertion, both SID registrations, readiness
+handshake, RPC-loop entry and later audio/SPU2 initialization.
+
+This is deliberately not a permanent verbose mode. It exists to make emulator
+logs identify the exact IOP-side stage instead of encoding every failure only
+as a framebuffer color.

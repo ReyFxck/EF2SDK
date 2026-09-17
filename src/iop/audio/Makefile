@@ -5,6 +5,7 @@ IOP_IMPORT_INCS += \
     system/intrman \
     system/loadcore \
     system/sifcmd \
+    system/sysmem \
     system/threadman
 
 IOP_INCS += -I../../../include
