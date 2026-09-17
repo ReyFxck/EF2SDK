@@ -107,3 +107,51 @@ buffer, underrun workaround and mixer policy. Those are platform services.
 
 EF2Audio treats the SPU2 rate as a backend detail and keeps emulator/core
 timing at its native rate.
+
+
+## Alpha.4: first audible hardware path
+
+Alpha.4 connects the existing source-rate-agnostic converter to a real IOP
+streaming service:
+
+```text
+generated melody @ 32 kHz
+          |
+          v
+EE Q32 rate converter
+          |
+          v
+48 kHz stereo S16
+          |
+          v
+EF2 SIF/RPC client
+          |
+          v
+ef2audio.irx
+          |
+          v
+8192-frame IOP ring
+          |
+          v
+SPU2 block transfer
+```
+
+The melody is generated procedurally in the ELF and is not an embedded music
+file. This intentionally exercises a non-48-kHz producer before the hardware
+backend.
+
+The current IOP service imports the console ROM's `LIBSD` only as a
+low-level SPU2 bootstrap. It does not use `audsrv`; EF2SDK owns the RPC
+protocol, ring buffer, backpressure, resampling and statistics. Replacing
+`LIBSD` with direct SPU2/DMA control remains a planned milestone.
+
+The smoke ELF uses screen color as a simple hardware diagnostic:
+
+- **blue**: GS/video passed and audio initialization is starting;
+- **red**: SIF/IOP/audio initialization or submission failed;
+- **teal-green**: the IOP service initialized, the ring was prefilled and
+  SPU2 streaming was started.
+
+The first ring capacity is 8192 stereo frames, about 171 ms at 48 kHz. It is
+large on purpose so a short EE stall does not immediately become an audible
+underrun.

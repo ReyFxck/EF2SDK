@@ -41,8 +41,8 @@
 
 ## P3 - Input and IOP
 
-- [ ] SIF/RPC base
-- [ ] IOP module loading
+- [x] minimal EE SIFCMD/RPC client base
+- [x] in-memory IOP module loading
 - [ ] controller API
 - [ ] memory card access
 - [ ] USB mass storage path
@@ -54,8 +54,11 @@
 - [x] nearest and linear resampling modes
 - [x] saturating S16 mixer helper
 - [x] host-side audio regression tests in CI
-- [ ] low-level SPU2 path
-- [ ] autonomous IOP streaming ring buffer
+- [x] first EF2Audio IOP service and private RPC protocol
+- [x] autonomous IOP PCM streaming ring buffer
+- [x] SPU2 block-transfer bootstrap through ROM LIBSD
+- [x] embedded 32 kHz -> 48 kHz audible melody smoke test
+- [ ] direct SPU2 backend replacing the temporary LIBSD dependency
 - [ ] per-stream and per-bus mixer
 - [ ] cubic resampler
 - [ ] band-limited/sinc resampler

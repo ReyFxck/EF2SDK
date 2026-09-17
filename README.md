@@ -18,7 +18,10 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - a direct GIF FIFO path for small GS packets, without gsKit or PS2SDK libraries;
 - initial framebuffer scanout and a full-screen sprite clear smoke test;
 - a reusable `libef2.a` static library;
-- an initial source-rate-agnostic EF2Audio core with fixed-point resampling and S16 mixing;
+- a source-rate-agnostic EF2Audio core with fixed-point resampling and S16 mixing;
+- a minimal independent EE SIFCMD/RPC client and in-memory IRX loader;
+- an `ef2audio.irx` service with its own IOP ring buffer and private RPC protocol;
+- an audible generated 32 kHz -> 48 kHz melody smoke test;
 - CI builds for every push and pull request;
 - automatic packaged artifacts;
 - automatic GitHub Releases for `v*` tags;
@@ -34,7 +37,7 @@ For now, CI borrows the existing R5900 compiler/binutils only as a bootstrap too
 
 CI resolves the current official `ps2dev-ubuntu-latest.tar.gz` release asset, verifies its published SHA-256 digest, caches only the EE toolchain, and places `ee/bin` in `PATH`. PS2SDK headers, startup objects and libraries are not used by the PoC build.
 
-The long-term goal is to reduce external bootstrap dependencies as EF2SDK matures.
+The long-term goal is to reduce external bootstrap dependencies as EF2SDK matures.\n\nAlpha.4 uses the PS2SDK source tree only at **build time** for current IOP IRX rules/import headers, and the resulting `ef2audio.irx` imports the console ROM's `LIBSD` service as a temporary low-level SPU2 bootstrap. The EE ELF still does not link PS2SDK libraries, and EF2Audio does **not** use `audsrv`. Ring buffering, RPC, resampling and stream policy are EF2SDK code. Direct SPU2 ownership is an explicit follow-up target.
 
 ## Build
 
@@ -50,6 +53,7 @@ The build produces:
 ```text
 build/ef2-boot.elf
 build/libef2.a
+build/ef2audio.irx
 ```
 
 ## Smoke test
@@ -65,8 +69,8 @@ Pushes and pull requests produce short-lived CI artifacts.
 A tag such as:
 
 ```sh
-git tag v0.0.1-alpha.3
-git push origin v0.0.1-alpha.3
+git tag v0.0.1-alpha.4
+git push origin v0.0.1-alpha.4
 ```
 
 builds, packages and publishes a GitHub Release automatically with generated release notes.
@@ -78,7 +82,9 @@ include/             Public EF2SDK headers
 src/ee/runtime/      EE startup/runtime code
 src/ee/kernel/       Raw EE kernel interface
 src/ee/gs/           GS/video implementation
-src/ee/audio/        Rate conversion and mixer foundation
+src/ee/audio/        Rate conversion, mixer and IOP backend
+src/ee/sif/          Minimal SIFCMD/RPC client
+src/iop/audio/       EF2Audio IOP streaming service
 ld/                  EF2SDK linker scripts
 examples/            Hardware/emulator smoke tests
 docs/                Architecture and roadmap
