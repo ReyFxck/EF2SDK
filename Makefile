@@ -21,6 +21,7 @@ LDFLAGS := -nostdlib -nostartfiles -nodefaultlibs \
 OBJS := \
     $(BUILD)/start.o \
     $(BUILD)/syscall.o \
+    $(BUILD)/gif.o \
     $(BUILD)/video.o \
     $(BUILD)/boot.o
 
@@ -37,7 +38,10 @@ $(BUILD)/start.o: src/ee/runtime/start.S | $(BUILD)
 $(BUILD)/syscall.o: src/ee/kernel/syscall.S | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/video.o: src/ee/gs/video.c include/ef2/base.h include/ef2/gs.h include/ef2/kernel.h include/ef2/video.h | $(BUILD)
+$(BUILD)/gif.o: src/ee/gs/gif.S | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/video.o: src/ee/gs/video.c include/ef2/base.h include/ef2/gif.h include/ef2/gs.h include/ef2/kernel.h include/ef2/video.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/boot.o: examples/boot/main.c include/ef2/base.h include/ef2/video.h | $(BUILD)
@@ -62,13 +66,13 @@ check: $(ELF)
 	@entry=`$(READELF) -h $(ELF) | awk '/Entry point address:/ { print $$4 }'`; \
 	case "$$entry" in 0x100000|0x00100000) ;; *) echo "ERROR: unexpected entry point $$entry"; exit 1 ;; esac
 	@echo "== Required EF2SDK symbols =="
-	@for sym in _start ef2_kernel_set_gs_crt ef2_video_init ef2_video_set_background; do \
+	@for sym in _start ef2_kernel_set_gs_crt ef2_gif_reset ef2_gif_send_qwords ef2_video_init ef2_video_clear; do \
 		if ! $(NM) $(ELF) | grep -q " $$sym$$"; then \
 			echo "ERROR: missing $$sym"; exit 1; \
 		fi; \
 	done
 	@echo "== Disassembly preview =="
-	$(OBJDUMP) -d $(ELF) | head -n 120
+	$(OBJDUMP) -d $(ELF) | head -n 160
 
 package: clean all check
 	./scripts/package.sh
