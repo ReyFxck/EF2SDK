@@ -55,10 +55,21 @@ int ef2_audio_device_init(void)
      */
     (void)ef2_iop_load_module_ex("rom0:LIBSD", &libsd_modres);
 
-    result = ef2_iop_exec_module_buffer_ex(
-        ef2audio_irx,
-        ef2audio_irx_size,
-        &audio_modres);
+    /*
+     * Diagnostic path: when ef2audio.irx sits next to the ELF on the host
+     * device, prefer the normal path-based loader. NetherSX2 logs this loader
+     * path and its return value explicitly, which lets us verify _start and
+     * imports independently of the embedded LoadModuleBuffer path.
+     */
+    result = ef2_iop_load_module_ex("host:ef2audio.irx", &audio_modres);
+
+    if (result < 0 || audio_modres != 0) {
+        audio_modres = -1;
+        result = ef2_iop_exec_module_buffer_ex(
+            ef2audio_irx,
+            ef2audio_irx_size,
+            &audio_modres);
+    }
 
     if (result < 0) {
         int patch_result = ef2_iop_enable_module_buffer();

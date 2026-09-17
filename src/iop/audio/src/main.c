@@ -13,6 +13,12 @@ IRX_ID("ef2audio", 1, 0);
 
 #define EF2_LOG_PREFIX "[EF2AUDIO] "
 
+#define EF2_LOG(...)            \
+    do {                        \
+        printf(__VA_ARGS__);    \
+        EF2_LOG(__VA_ARGS__);   \
+    } while (0)
+
 static SifRpcDataQueue_t g_rpc_queue;
 static SifRpcServerData_t g_rpc_server;
 static SifRpcServerData_t g_rpc_server_fallback;
@@ -55,7 +61,7 @@ static int create_semaphore(int initial, int max)
     sema.max = max;
 
     result = CreateSema(&sema);
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "CreateSema initial=%d max=%d -> %d\n",
         initial,
         max,
@@ -175,13 +181,13 @@ static int audio_initialize(void)
     iop_thread_t thread;
     int sd_init_result;
 
-    Kprintf(EF2_LOG_PREFIX "audio_initialize entered initialized=%d\n", g_initialized);
+    EF2_LOG(EF2_LOG_PREFIX "audio_initialize entered initialized=%d\n", g_initialized);
 
     if (g_initialized)
         return 0;
 
     sd_init_result = sceSdInit(EF2AUDIO_SD_INIT_COLD);
-    Kprintf(EF2_LOG_PREFIX "sceSdInit -> %d\n", sd_init_result);
+    EF2_LOG(EF2_LOG_PREFIX "sceSdInit -> %d\n", sd_init_result);
 
     if (sd_init_result < 0)
         return -1;
@@ -211,21 +217,21 @@ static int audio_initialize(void)
     thread.priority = 38;
 
     g_play_thread = CreateThread(&thread);
-    Kprintf(EF2_LOG_PREFIX "audio play CreateThread -> %d\n", g_play_thread);
+    EF2_LOG(EF2_LOG_PREFIX "audio play CreateThread -> %d\n", g_play_thread);
 
     if (g_play_thread < 0)
         return -3;
 
     {
         int start_result = StartThread(g_play_thread, 0);
-        Kprintf(EF2_LOG_PREFIX "audio play StartThread -> %d\n", start_result);
+        EF2_LOG(EF2_LOG_PREFIX "audio play StartThread -> %d\n", start_result);
 
         if (start_result < 0)
             return -4;
     }
 
     g_initialized = 1;
-    Kprintf(EF2_LOG_PREFIX "audio_initialize success\n");
+    EF2_LOG(EF2_LOG_PREFIX "audio_initialize success\n");
     return 0;
 }
 
@@ -279,7 +285,7 @@ static int audio_start(void)
 {
     int transfer_result;
 
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "audio_start initialized=%d started=%d queued=%u\n",
         g_initialized,
         g_started,
@@ -301,7 +307,7 @@ static int audio_start(void)
         sizeof(g_spu_buffer),
         0);
 
-    Kprintf(EF2_LOG_PREFIX "sceSdBlockTrans -> %d\n", transfer_result);
+    EF2_LOG(EF2_LOG_PREFIX "sceSdBlockTrans -> %d\n", transfer_result);
 
     if (transfer_result < 0) {
         update_volume(0);
@@ -309,7 +315,7 @@ static int audio_start(void)
     }
 
     g_started = 1;
-    Kprintf(EF2_LOG_PREFIX "audio_start success\n");
+    EF2_LOG(EF2_LOG_PREFIX "audio_start success\n");
     return 0;
 }
 
@@ -326,7 +332,7 @@ static void *rpc_handler(int function, void *buffer, int length)
 {
     int result = 0;
 
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "rpc_handler fn=%d length=%d queue=%u underruns=%u overruns=%u\n",
         function,
         length,
@@ -378,7 +384,7 @@ static void *rpc_handler(int function, void *buffer, int length)
 
     fill_reply(result);
 
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "rpc_handler fn=%d result=%d queued=%u\n",
         function,
         result,
@@ -396,25 +402,25 @@ static void rpc_thread(void *arg)
 
     tid = GetThreadId();
 
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "rpc_thread entered tid=%d queue=%08x server=%08x\n",
         tid,
         (unsigned int)&g_rpc_queue,
         (unsigned int)&g_rpc_server);
 
-    Kprintf(EF2_LOG_PREFIX "calling sceSifInitRpc\n");
+    EF2_LOG(EF2_LOG_PREFIX "calling sceSifInitRpc\n");
     sceSifInitRpc(0);
-    Kprintf(EF2_LOG_PREFIX "sceSifInitRpc returned\n");
+    EF2_LOG(EF2_LOG_PREFIX "sceSifInitRpc returned\n");
 
-    Kprintf(EF2_LOG_PREFIX "calling sceSifSetRpcQueue tid=%d\n", tid);
+    EF2_LOG(EF2_LOG_PREFIX "calling sceSifSetRpcQueue tid=%d\n", tid);
     sceSifSetRpcQueue(&g_rpc_queue, tid);
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "queue registered thread_id=%d link=%08x next=%08x active=%d\n",
         g_rpc_queue.thread_id,
         (unsigned int)g_rpc_queue.link,
         (unsigned int)g_rpc_queue.next,
         g_rpc_queue.active);
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "register primary SID=%08x\n",
         (unsigned int)EF2_AUDIO_RPC_SID_PRIMARY);
 
@@ -427,13 +433,13 @@ static void rpc_thread(void *arg)
         0,
         &g_rpc_queue);
 
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "primary registered server.sid=%08x server.base=%08x queue.link=%08x\n",
         (unsigned int)g_rpc_server.sid,
         (unsigned int)g_rpc_server.base,
         (unsigned int)g_rpc_queue.link);
 
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "register fallback SID=%08x\n",
         (unsigned int)EF2_AUDIO_RPC_SID_FALLBACK);
 
@@ -446,22 +452,22 @@ static void rpc_thread(void *arg)
         0,
         &g_rpc_queue);
 
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "fallback registered server.sid=%08x server.base=%08x primary.link=%08x\n",
         (unsigned int)g_rpc_server_fallback.sid,
         (unsigned int)g_rpc_server_fallback.base,
         (unsigned int)g_rpc_server.link);
 
     signal_result = SignalSema(g_rpc_ready_sema);
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "rpc ready SignalSema(%d) -> %d\n",
         g_rpc_ready_sema,
         signal_result);
 
-    Kprintf(EF2_LOG_PREFIX "entering sceSifRpcLoop\n");
+    EF2_LOG(EF2_LOG_PREFIX "entering sceSifRpcLoop\n");
     sceSifRpcLoop(&g_rpc_queue);
 
-    Kprintf(EF2_LOG_PREFIX "ERROR: sceSifRpcLoop returned\n");
+    EF2_LOG(EF2_LOG_PREFIX "ERROR: sceSifRpcLoop returned\n");
 }
 
 int _start(int argc, char *argv[])
@@ -473,17 +479,17 @@ int _start(int argc, char *argv[])
 
     (void)argv;
 
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "_start entered argc=%d primary=%08x fallback=%08x\n",
         argc,
         (unsigned int)EF2_AUDIO_RPC_SID_PRIMARY,
         (unsigned int)EF2_AUDIO_RPC_SID_FALLBACK);
 
     FlushDcache();
-    Kprintf(EF2_LOG_PREFIX "FlushDcache done\n");
+    EF2_LOG(EF2_LOG_PREFIX "FlushDcache done\n");
 
     CpuEnableIntr();
-    Kprintf(EF2_LOG_PREFIX "CpuEnableIntr done\n");
+    EF2_LOG(EF2_LOG_PREFIX "CpuEnableIntr done\n");
 
     thread.attr = TH_C;
     thread.option = 0;
@@ -499,37 +505,37 @@ int _start(int argc, char *argv[])
      * context without reintroducing the EE/IOP bind race.
      */
     g_rpc_ready_sema = create_semaphore(0, 1);
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "rpc ready sema=%d\n",
         g_rpc_ready_sema);
 
     if (g_rpc_ready_sema < 0) {
-        Kprintf(EF2_LOG_PREFIX "ERROR: rpc ready sema creation failed\n");
+        EF2_LOG(EF2_LOG_PREFIX "ERROR: rpc ready sema creation failed\n");
         return MODULE_NO_RESIDENT_END;
     }
 
     thread_id = CreateThread(&thread);
-    Kprintf(EF2_LOG_PREFIX "rpc CreateThread -> %d\n", thread_id);
+    EF2_LOG(EF2_LOG_PREFIX "rpc CreateThread -> %d\n", thread_id);
 
     if (thread_id < 0)
         return MODULE_NO_RESIDENT_END;
 
     start_result = StartThread(thread_id, 0);
-    Kprintf(EF2_LOG_PREFIX "rpc StartThread -> %d\n", start_result);
+    EF2_LOG(EF2_LOG_PREFIX "rpc StartThread -> %d\n", start_result);
 
     if (start_result < 0)
         return MODULE_NO_RESIDENT_END;
 
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "waiting for rpc ready sema=%d\n",
         g_rpc_ready_sema);
 
     wait_result = WaitSema(g_rpc_ready_sema);
 
-    Kprintf(
+    EF2_LOG(
         EF2_LOG_PREFIX "rpc ready WaitSema -> %d\n",
         wait_result);
 
-    Kprintf(EF2_LOG_PREFIX "_start returning MODULE_RESIDENT_END\n");
+    EF2_LOG(EF2_LOG_PREFIX "_start returning MODULE_RESIDENT_END\n");
     return MODULE_RESIDENT_END;
 }

@@ -234,3 +234,18 @@ handshake, RPC-loop entry and later audio/SPU2 initialization.
 This is deliberately not a permanent verbose mode. It exists to make emulator
 logs identify the exact IOP-side stage instead of encoding every failure only
 as a framebuffer color.
+
+
+## Alpha.11: host-loader and stdio diagnostic build
+
+For emulator diagnosis, the boot ELF now first tries
+`host:ef2audio.irx`. When the IRX file is placed next to the ELF in the
+emulator host directory, NetherSX2 should print the path-based load operation
+and its module result directly in emulog.
+
+If the host file is unavailable or fails to remain resident, EF2SDK falls back
+to the embedded IRX path, so the standalone behavior is preserved.
+
+IOP tracing now emits through both `printf` (stdio) and `Kprintf` using the
+same `[EF2AUDIO]` prefix. This is diagnostic-only duplication intended to
+maximize visibility across emulators and BIOS/debug configurations.
