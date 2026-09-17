@@ -4,19 +4,24 @@
 
 EF2SDK is an independent, community-driven SDK experiment for PlayStation 2 homebrew.
 
-The first goal is intentionally small: boot a freestanding EE ELF built without PS2SDK startup objects or libraries, then replace the remaining bootstrap pieces one subsystem at a time.
+The project starts from a deliberately small target: boot a freestanding EE ELF without PS2SDK startup objects or libraries, then grow the runtime and hardware layers one subsystem at a time.
 
 ## Current status
 
-**PoC / pre-alpha.** The repository currently provides:
+**PoC / pre-alpha.** EF2SDK currently provides:
 
-- a tiny EE runtime entry point;
-- an EF2SDK-owned linker script;
-- a freestanding boot example;
+- an independent EE entry point and linker script;
+- explicit `.bss` initialization in the freestanding startup;
+- a raw EE kernel syscall wrapper for `SetGsCrt`;
+- initial GS privileged-register definitions;
+- explicit NTSC/PAL video-mode selection;
+- a background-only PCRTC smoke test that requires no framebuffer, GIF DMA or gsKit;
 - CI builds for every push and pull request;
 - automatic packaged artifacts;
 - automatic GitHub Releases for `v*` tags;
 - automatic release notes grouped by PR labels.
+
+The current `examples/boot` build should show a vivid blue screen when the minimal GS/PCRTC path works. Until that is visually confirmed, the video milestone remains experimental.
 
 ## Bootstrap policy
 
@@ -43,6 +48,12 @@ The PoC ELF is written to:
 build/ef2-boot.elf
 ```
 
+## Smoke test
+
+The current example selects NTSC, interlaced field mode, resets the GS, programs the CRT through the EE kernel syscall and switches the PCRTC merge output to `BGCOLOR`.
+
+A successful boot should produce a solid blue screen. This stage intentionally does **not** allocate a GS framebuffer or submit GIF packets yet.
+
 ## Releases
 
 Pushes and pull requests produce short-lived CI artifacts.
@@ -61,6 +72,8 @@ builds, packages and publishes a GitHub Release automatically with generated rel
 ```text
 include/             Public EF2SDK headers
 src/ee/runtime/      EE startup/runtime code
+src/ee/kernel/       Raw EE kernel interface
+src/ee/gs/           GS/video implementation
 ld/                  EF2SDK linker scripts
 examples/            Hardware/emulator smoke tests
 docs/                Architecture and roadmap
