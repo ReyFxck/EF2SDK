@@ -2,6 +2,8 @@
 #include <ef2/audio_rpc.h>
 #include <ef2/sif.h>
 
+#include "ef2audio_debug.h"
+
 extern const ef2_u8 ef2audio_irx[];
 extern const ef2_u32 ef2audio_irx_size;
 
@@ -10,13 +12,12 @@ static ef2_audio_rpc_submit g_submit_buffer EF2_ALIGN(64);
 static ef2_audio_rpc_reply g_reply_buffer EF2_ALIGN(64);
 static ef2_s32 g_audio_bound;
 
-#define EF2_AUDIO_DEBUG_SREG 31u
-
 static void audio_debug_emit_loader_marker(ef2_s32 stage)
 {
     const char *path;
 
     switch (stage) {
+        case -1: path = "rom0:EF2NOMOD"; break;
         case 1:  path = "rom0:EF2DBG01"; break;
         case 2:  path = "rom0:EF2DBG02"; break;
         case 3:  path = "rom0:EF2DBG03"; break;
@@ -41,19 +42,20 @@ static void audio_debug_emit_loader_marker(ef2_s32 stage)
     (void)ef2_iop_load_module(path);
 }
 
-static ef2_s32 audio_debug_wait_stage(void)
+static ef2_s32 audio_debug_read_stage(void)
 {
-    ef2_u32 spin;
-    ef2_s32 stage = 0;
+    ef2_u32 stage = 0;
+    int result;
 
-    for (spin = 0; spin < 0x00400000u; ++spin) {
-        stage = ef2_sif_debug_get_sreg(EF2_AUDIO_DEBUG_SREG);
-        if (stage >= 13)
-            break;
-        __asm__ volatile("nop");
-    }
+    result = ef2_iop_debug_read_module_u32(
+        "ef2audio",
+        EF2AUDIO_DEBUG_STAGE_OFFSET,
+        &stage);
 
-    return stage;
+    if (result < 0)
+        return -1;
+
+    return (ef2_s32)stage;
 }
 
 static void audio_zero(void *ptr, ef2_u32 size)
@@ -134,7 +136,7 @@ int ef2_audio_device_init(void)
      * a broken return path can otherwise make a zeroed result look valid.
      */
     {
-        ef2_s32 debug_stage = audio_debug_wait_stage();
+        ef2_s32 debug_stage = audio_debug_read_stage();
         audio_debug_emit_loader_marker(debug_stage);
     }
 

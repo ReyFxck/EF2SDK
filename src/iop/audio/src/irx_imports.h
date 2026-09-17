@@ -6,8 +6,6 @@
 #include <libsd.h>
 #include <loadcore.h>
 #include <sifrpc.h>
-#include <stdio.h>
-#include <sysmem.h>
 #include <thbase.h>
 #include <thsemap.h>
 

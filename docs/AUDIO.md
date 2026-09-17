@@ -265,3 +265,29 @@ IOP stage even when IOP printf/Kprintf output is hidden.
 
 Stage 00 means no IRX stage message reached the EE. Stage 13 means the worker
 registered both RPC SIDs, signalled readiness, and reached `sceSifRpcLoop`.
+
+
+## Alpha.13: direct IOP-memory black-box
+
+Alpha.12 reported `EF2DBG00`. That result was ambiguous because its very
+first debug action called `sceSifSendCmd`, so a broken or unavailable
+debug import could stop the module before the debugger could report anything.
+
+Alpha.13 removes the debug-only SIFCMD, stdio and Kprintf dependencies from
+the IRX. Instead, `ef2audio.irx` maintains a plain global
+`ef2audio_debug_stage` and writes stage numbers directly into its own IOP
+RAM.
+
+During the build, EF2SDK extracts that symbol's module-relative address from
+the unstripped IRX ELF and generates an EE header automatically. The EE then
+finds the resident `ef2audio` module in the IOP module list and reads the
+debug word directly through the IOP memory window.
+
+The emulator log marker now has one additional meaning:
+
+- `EF2NOMOD`: the EE could not find/read the resident ef2audio module at all;
+- `EF2DBG00`: module exists, but its stage word is still zero;
+- `EF2DBG01..13`: exact last stage reached without depending on SIFCMD/RPC/logging.
+
+This path is deliberately independent of every subsystem currently under
+investigation.

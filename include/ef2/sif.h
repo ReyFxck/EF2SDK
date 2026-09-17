@@ -32,7 +32,6 @@ typedef struct {
 } ef2_sif_rpc_client;
 
 int ef2_sif_init(void);
-ef2_s32 ef2_sif_debug_get_sreg(ef2_u32 index);
 int ef2_sif_bind(ef2_sif_rpc_client *client, ef2_u32 sid);
 int ef2_sif_call(
     ef2_sif_rpc_client *client,
@@ -41,6 +40,11 @@ int ef2_sif_call(
     ef2_u32 send_size,
     void *receive_buffer,
     ef2_u32 receive_size);
+
+int ef2_iop_debug_read_module_u32(
+    const char *module_name,
+    ef2_u32 module_offset,
+    ef2_u32 *value);
 
 int ef2_iop_load_module(const char *path);
 int ef2_iop_load_module_ex(const char *path, ef2_s32 *module_result);

@@ -550,14 +550,6 @@ int ef2_sif_init(void)
     return 0;
 }
 
-ef2_s32 ef2_sif_debug_get_sreg(ef2_u32 index)
-{
-    if (index >= 32u)
-        return -1;
-
-    return g_sregs[index];
-}
-
 int ef2_sif_bind(ef2_sif_rpc_client *client, ef2_u32 sid)
 {
     ef2_u32 attempt;
@@ -1096,6 +1088,41 @@ int ef2_iop_enable_module_buffer(void)
         return -307;
 
     return 0;
+}
+
+int ef2_iop_debug_read_module_u32(
+    const char *module_name,
+    ef2_u32 module_offset,
+    ef2_u32 *value)
+{
+    ef2_iop_module_info info;
+    ef2_u32 name_length = 0;
+    ef2_u32 module_size;
+    int result;
+
+    if (module_name == (const char *)0 || value == (ef2_u32 *)0)
+        return -1;
+
+    while (module_name[name_length] != '\0') {
+        ++name_length;
+        if (name_length >= 63u)
+            return -2;
+    }
+
+    result = ef2_iop_find_module(module_name, name_length, &info);
+    if (result < 0)
+        return -3;
+
+    module_size = info.text_size + info.data_size + info.bss_size;
+
+    if (module_offset > module_size ||
+        module_size - module_offset < sizeof(ef2_u32))
+        return -4;
+
+    return ef2_iop_read(
+        info.text_start + module_offset,
+        value,
+        sizeof(*value));
 }
 
 int ef2_iop_load_module_ex(const char *path, ef2_s32 *module_result)
