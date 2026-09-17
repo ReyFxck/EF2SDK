@@ -86,9 +86,16 @@ int ef2_audio_device_init(void)
 
     audio_zero(&g_audio_client, sizeof(g_audio_client));
 
-    result = ef2_sif_bind(&g_audio_client, EF2_AUDIO_RPC_SID);
-    if (result < 0)
-        return -3000 + result;
+    result = ef2_sif_bind(&g_audio_client, EF2_AUDIO_RPC_SID_PRIMARY);
+    if (result < 0 || g_audio_client.server == (void *)0) {
+        audio_zero(&g_audio_client, sizeof(g_audio_client));
+        result = ef2_sif_bind(
+            &g_audio_client,
+            EF2_AUDIO_RPC_SID_FALLBACK);
+    }
+
+    if (result < 0 || g_audio_client.server == (void *)0)
+        return -3000 + ((result < 0) ? result : -9);
 
     g_audio_bound = 1;
 

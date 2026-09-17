@@ -13,6 +13,7 @@ IRX_ID("ef2audio", 1, 0);
 
 static SifRpcDataQueue_t g_rpc_queue;
 static SifRpcServerData_t g_rpc_server;
+static SifRpcServerData_t g_rpc_server_fallback;
 static unsigned char g_rpc_input[4096] __attribute__((aligned(64)));
 static ef2_audio_rpc_reply g_rpc_reply __attribute__((aligned(64)));
 
@@ -345,7 +346,16 @@ static void rpc_thread(void *arg)
     sceSifSetRpcQueue(&g_rpc_queue, GetThreadId());
     sceSifRegisterRpc(
         &g_rpc_server,
-        EF2_AUDIO_RPC_SID,
+        EF2_AUDIO_RPC_SID_PRIMARY,
+        rpc_handler,
+        g_rpc_input,
+        0,
+        0,
+        &g_rpc_queue);
+
+    sceSifRegisterRpc(
+        &g_rpc_server_fallback,
+        EF2_AUDIO_RPC_SID_FALLBACK,
         rpc_handler,
         g_rpc_input,
         0,
