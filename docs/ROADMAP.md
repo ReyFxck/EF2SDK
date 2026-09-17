@@ -27,13 +27,16 @@
 
 - [x] initial GS privileged register definitions
 - [x] explicit NTSC/PAL mode selection
-- [x] background-only PCRTC smoke-test path
-- [ ] validate visible background smoke test in emulator/hardware
+- [x] retire failed background-only PCRTC smoke-test path
+- [x] initial DISPFB/DISPLAY framebuffer scanout setup
+- [x] direct GIF FIFO packet writer
+- [x] initial GS drawing-environment register packers
+- [x] framebuffer clear implemented as a GS sprite
+- [ ] validate visible framebuffer clear in emulator/hardware
 - [ ] automatic region/default-mode selection
-- [ ] framebuffer API
-- [ ] DMA/GIF primitives
-- [ ] GS drawing-environment registers
-- [ ] first framebuffer clear / primitive draw
+- [ ] public framebuffer allocation/configuration API
+- [ ] GIF DMA path
+- [ ] primitive API beyond the smoke test
 
 ## P3 - Input and IOP
 
