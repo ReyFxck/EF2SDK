@@ -24,8 +24,8 @@ typedef struct {
 } ef2_video_config;
 
 int ef2_video_init(const ef2_video_config *config);
+int ef2_video_clear(ef2_u8 r, ef2_u8 g, ef2_u8 b);
 void ef2_video_set_background(ef2_u8 r, ef2_u8 g, ef2_u8 b);
-void ef2_video_output_background(void);
 
 #ifdef __cplusplus
 }
