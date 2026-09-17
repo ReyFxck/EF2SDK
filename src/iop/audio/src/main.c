@@ -28,6 +28,7 @@ static unsigned char g_spu_buffer[4096] __attribute__((aligned(64)));
 static int g_ring_mutex = -1;
 static int g_space_sema = -1;
 static int g_transfer_sema = -1;
+static int g_rpc_ready_sema = -1;
 static int g_play_thread = -1;
 static int g_initialized;
 static int g_started;
@@ -334,6 +335,24 @@ static void *rpc_handler(int function, void *buffer, int length)
 static void rpc_thread(void *arg)
 {
     (void)arg;
+
+    /*
+     * Match the long-standing PS2 IOP RPC pattern: initialize, attach the
+     * queue to the thread that will actually service it, register the SID,
+     * then enter the loop from the same thread context.
+     */
+    sceSifInitRpc(0);
+    sceSifSetRpcQueue(&g_rpc_queue, GetThreadId());
+    sceSifRegisterRpc(
+        &g_rpc_server,
+        EF2_AUDIO_RPC_SID,
+        rpc_handler,
+        g_rpc_input,
+        0,
+        0,
+        &g_rpc_queue);
+
+    SignalSema(g_rpc_ready_sema);
     sceSifRpcLoop(&g_rpc_queue);
 }
 
@@ -355,29 +374,24 @@ int _start(int argc, char *argv[])
     thread.priority = 40;
 
     /*
-     * Register the RPC service before returning from _start. The EE loader
-     * resumes as soon as module start completes, so deferring registration to
-     * the worker thread creates a race where an immediate bind can observe no
-     * server even though the IRX loaded successfully.
+     * Registering an IOP SIFRPC queue from _start is subtly different from
+     * the pattern used by established PS2 modules. Run the complete RPC setup
+     * in the worker thread itself, but make module start wait until that
+     * thread explicitly confirms registration. This keeps the standard thread
+     * context without reintroducing the EE/IOP bind race.
      */
-    sceSifInitRpc(0);
+    g_rpc_ready_sema = create_semaphore(0, 1);
+    if (g_rpc_ready_sema < 0)
+        return MODULE_NO_RESIDENT_END;
 
     thread_id = CreateThread(&thread);
     if (thread_id < 0)
         return MODULE_NO_RESIDENT_END;
 
-    sceSifSetRpcQueue(&g_rpc_queue, thread_id);
-    sceSifRegisterRpc(
-        &g_rpc_server,
-        EF2_AUDIO_RPC_SID,
-        rpc_handler,
-        g_rpc_input,
-        0,
-        0,
-        &g_rpc_queue);
-
     if (StartThread(thread_id, 0) < 0)
         return MODULE_NO_RESIDENT_END;
+
+    WaitSema(g_rpc_ready_sema);
 
     return MODULE_RESIDENT_END;
 }

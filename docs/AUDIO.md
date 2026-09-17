@@ -206,3 +206,19 @@ The blue-violet diagnostic specifically means the embedded IRX was accepted
 by LOADFILE but its `_start` did not remain resident. Orange now means the
 IRX *did* report resident, so the remaining fault is genuinely RPC
 registration/binding.
+
+
+## Alpha.8: RPC-thread readiness handshake
+
+Alpha.7 confirmed that `ef2audio.irx` returned
+`MODULE_RESIDENT_END`, while the EF2 SID was still not visible to the EE.
+The same EE bind implementation had already bound the stock IOP heap and
+LOADFILE services successfully, which narrows the fault to IOP-side EF2Audio
+registration.
+
+Alpha.8 follows the conventional IOP RPC-server pattern used by established
+PS2 modules: the RPC worker thread itself calls `sceSifInitRpc`,
+`sceSifSetRpcQueue(..., GetThreadId())` and `sceSifRegisterRpc`.
+A private semaphore makes `_start` wait until registration has completed
+before returning `MODULE_RESIDENT_END`, removing both the scheduler race and
+the nonstandard queue-registration context.
