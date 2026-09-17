@@ -30,6 +30,7 @@ static inline ef2_u64 ef2_gif_pack_tag(
            ((ef2_u64)(nreg & 0x0Fu) << 60);
 }
 
+void ef2_gif_reset(void);
 void ef2_gif_send_qwords(const ef2_gif_qword *packet, ef2_u32 count);
 
 #ifdef __cplusplus
