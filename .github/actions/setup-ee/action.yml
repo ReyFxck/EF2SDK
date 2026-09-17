@@ -1,5 +1,5 @@
-name: Setup EE bootstrap toolchain
-description: Resolve, verify and cache the latest official ps2dev Linux EE toolchain
+name: Setup EF2 bootstrap toolchains
+description: Resolve, verify and cache the compiler/bootstrap pieces currently needed by EF2SDK
 
 runs:
   using: composite
@@ -28,14 +28,14 @@ runs:
         echo "url=$url" >> "$GITHUB_OUTPUT"
         echo "sha256=${digest#sha256:}" >> "$GITHUB_OUTPUT"
 
-    - name: Restore EE toolchain cache
+    - name: Restore EF2 bootstrap cache
       id: cache
       uses: actions/cache@v6
       with:
-        path: ${{ runner.temp }}/ef2-ps2dev/ee
-        key: ps2dev-ee-${{ runner.os }}-${{ steps.release.outputs.sha256 }}
+        path: ${{ runner.temp }}/ef2-ps2dev
+        key: ps2dev-ef2-bootstrap-v2-${{ runner.os }}-${{ steps.release.outputs.sha256 }}
 
-    - name: Download and verify EE toolchain
+    - name: Download and verify bootstrap bundle
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       env:
@@ -54,15 +54,24 @@ runs:
         tar -xzf "$archive" --strip-components=1 -C "$root"
 
         test -x "$root/ee/bin/mips64r5900el-ps2-elf-gcc"
+        test -x "$root/iop/bin/mipsel-none-elf-gcc"
+        test -f "$root/ps2sdk/iop/Rules.make"
 
-        find "$root" -mindepth 1 -maxdepth 1 ! -name ee -exec rm -rf {} +
+        find "$root" -mindepth 1 -maxdepth 1 \
+          ! -name ee ! -name iop ! -name ps2sdk -exec rm -rf {} +
         rm -f "$archive"
 
-    - name: Export EE toolchain environment
+    - name: Export EF2 bootstrap environment
       shell: bash
       run: |
         set -euo pipefail
         root="${RUNNER_TEMP}/ef2-ps2dev"
         test -x "$root/ee/bin/mips64r5900el-ps2-elf-gcc"
+        test -x "$root/iop/bin/mipsel-none-elf-gcc"
+        test -f "$root/ps2sdk/iop/Rules.make"
         echo "PS2DEV=$root" >> "$GITHUB_ENV"
+        echo "PS2SDK=$root/ps2sdk" >> "$GITHUB_ENV"
+        echo "PS2SDKSRC=$root/ps2sdk" >> "$GITHUB_ENV"
         echo "$root/ee/bin" >> "$GITHUB_PATH"
+        echo "$root/iop/bin" >> "$GITHUB_PATH"
+        echo "$root/ps2sdk/bin" >> "$GITHUB_PATH"

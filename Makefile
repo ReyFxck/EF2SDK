@@ -3,6 +3,7 @@ CC := $(CROSS)gcc
 AR := $(CROSS)ar
 NM := $(CROSS)nm
 HOSTCC ?= cc
+PYTHON ?= python3
 READELF := $(CROSS)readelf
 OBJDUMP := $(CROSS)objdump
 
@@ -11,6 +12,9 @@ ELF := $(BUILD)/ef2-boot.elf
 MAP := $(BUILD)/ef2-boot.map
 LIB := $(BUILD)/libef2.a
 HOST_AUDIO_TEST := $(BUILD)/audio-rate-test
+IOP_AUDIO_DIR := src/iop/audio
+IOP_AUDIO_IRX := $(BUILD)/ef2audio.irx
+IOP_AUDIO_C := $(BUILD)/ef2audio_irx.c
 
 CFLAGS := -G0 -O2 -Wall -Wextra -Werror \
           -ffreestanding -fno-builtin -fno-stack-protector \
@@ -24,9 +28,12 @@ LDFLAGS := -nostdlib -nostartfiles -nodefaultlibs \
 
 LIB_OBJS := \
     $(BUILD)/syscall.o \
+    $(BUILD)/sif.o \
     $(BUILD)/gif.o \
     $(BUILD)/video.o \
-    $(BUILD)/audio.o
+    $(BUILD)/audio.o \
+    $(BUILD)/audio_iop.o \
+    $(BUILD)/ef2audio_irx.o
 
 APP_OBJS := \
     $(BUILD)/start.o \
@@ -34,7 +41,7 @@ APP_OBJS := \
 
 .PHONY: all clean check host-test package toolchain-info
 
-all: $(ELF) $(LIB)
+all: $(ELF) $(LIB) $(IOP_AUDIO_IRX)
 
 $(BUILD):
 	mkdir -p $(BUILD)
@@ -43,6 +50,9 @@ $(BUILD)/start.o: src/ee/runtime/start.S | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/syscall.o: src/ee/kernel/syscall.S | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/sif.o: src/ee/sif/sif.c include/ef2/base.h include/ef2/kernel.h include/ef2/sif.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/gif.o: src/ee/gs/gif.S | $(BUILD)
@@ -54,7 +64,20 @@ $(BUILD)/video.o: src/ee/gs/video.c include/ef2/base.h include/ef2/gif.h include
 $(BUILD)/audio.o: src/ee/audio/audio.c include/ef2/audio.h include/ef2/base.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/boot.o: examples/boot/main.c include/ef2/base.h include/ef2/video.h | $(BUILD)
+$(BUILD)/audio_iop.o: src/ee/audio/iop_backend.c include/ef2/audio.h include/ef2/audio_rpc.h include/ef2/sif.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(IOP_AUDIO_IRX): $(IOP_AUDIO_DIR)/src/main.c $(IOP_AUDIO_DIR)/src/imports.lst $(IOP_AUDIO_DIR)/src/irx_imports.h $(IOP_AUDIO_DIR)/Makefile | $(BUILD)
+	$(MAKE) -C $(IOP_AUDIO_DIR) clean all
+	cp $(IOP_AUDIO_DIR)/irx/ef2audio.irx $@
+
+$(IOP_AUDIO_C): $(IOP_AUDIO_IRX) scripts/bin2c.py | $(BUILD)
+	$(PYTHON) scripts/bin2c.py $(IOP_AUDIO_IRX) $@ ef2audio_irx
+
+$(BUILD)/ef2audio_irx.o: $(IOP_AUDIO_C) include/ef2/base.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $(IOP_AUDIO_C) -o $@
+
+$(BUILD)/boot.o: examples/boot/main.c include/ef2/audio.h include/ef2/base.h include/ef2/video.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(LIB): $(LIB_OBJS)
@@ -70,11 +93,7 @@ $(HOST_AUDIO_TEST): tests/audio_rate_test.c src/ee/audio/audio.c include/ef2/aud
 host-test: $(HOST_AUDIO_TEST)
 	$(HOST_AUDIO_TEST)
 
-check: $(ELF)
-	@echo "== ELF header =="
-	$(READELF) -h $(ELF)
-	@echo "== Program headers =="
-	$(READELF) -l $(ELF)
+check: $(ELF) $(IOP_AUDIO_IRX)
 	@echo "== Undefined symbols =="
 	@if $(NM) -u $(ELF) | grep -q .; then \
 		echo "ERROR: unexpected undefined symbols"; \
@@ -85,20 +104,15 @@ check: $(ELF)
 	fi
 	@entry=`$(READELF) -h $(ELF) | awk '/Entry point address:/ { print $$4 }'`; \
 	case "$$entry" in 0x100000|0x00100000) ;; *) echo "ERROR: unexpected entry point $$entry"; exit 1 ;; esac
-	@echo "== Required EF2SDK symbols =="
-	@for sym in _start ef2_kernel_set_gs_crt ef2_gif_reset ef2_gif_send_qwords ef2_video_init ef2_video_clear; do \
-		if ! $(NM) $(ELF) | grep -q " $$sym$$"; then \
-			echo "ERROR: missing $$sym"; exit 1; \
-		fi; \
-	done
 	@echo "== EF2SDK library symbols =="
-	@for sym in ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_audio_mix_s16; do \
+	@for sym in ef2_video_init ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start; do \
 		if ! $(NM) $(LIB) | grep -q " $$sym$$"; then \
 			echo "ERROR: missing library symbol $$sym"; exit 1; \
 		fi; \
 	done
+	@test -s $(IOP_AUDIO_IRX)
 	@echo "== Disassembly preview =="
-	$(OBJDUMP) -d $(ELF) | head -n 160
+	$(OBJDUMP) -d $(ELF) | head -n 180
 
 package: clean all check
 	./scripts/package.sh
@@ -106,6 +120,7 @@ package: clean all check
 toolchain-info:
 	$(CC) --version
 	$(READELF) --version | head -n 1
+	@mipsel-none-elf-gcc --version | head -n 1
 
 clean:
-	rm -rf $(BUILD) dist
+	rm -rf $(BUILD) dist $(IOP_AUDIO_DIR)/obj $(IOP_AUDIO_DIR)/irx

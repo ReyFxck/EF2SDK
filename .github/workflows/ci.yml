@@ -16,14 +16,14 @@ concurrency:
 
 jobs:
   ee-poc:
-    name: EE freestanding PoC
+    name: EF2SDK freestanding PoC
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Setup EE bootstrap toolchain
+      - name: Setup EF2 bootstrap
         uses: ./.github/actions/setup-ee
 
       - name: Toolchain info
@@ -44,5 +44,7 @@ jobs:
             dist/*.tar.gz
             build/ef2-boot.elf
             build/ef2-boot.map
+            build/libef2.a
+            build/ef2audio.irx
           if-no-files-found: error
           retention-days: 14
