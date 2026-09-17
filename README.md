@@ -1,5 +1,7 @@
 # EF2SDK
 
+[![CI](https://github.com/ReyFxck/EF2SDK/actions/workflows/ci.yml/badge.svg)](https://github.com/ReyFxck/EF2SDK/actions/workflows/ci.yml)
+
 EF2SDK is an independent, community-driven SDK experiment for PlayStation 2 homebrew.
 
 The first goal is intentionally small: boot a freestanding EE ELF built without PS2SDK startup objects or libraries, then replace the remaining bootstrap pieces one subsystem at a time.
