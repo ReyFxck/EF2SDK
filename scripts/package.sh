@@ -7,13 +7,14 @@ DIST="dist"
 STAGE="${DIST}/${ROOT}"
 
 rm -rf "${DIST}"
-mkdir -p "${STAGE}/bin" "${STAGE}/include" "${STAGE}/ld" "${STAGE}/docs"
+mkdir -p "${STAGE}/bin" "${STAGE}/lib" "${STAGE}/include" "${STAGE}/ld" "${STAGE}/docs"
 
 cp build/ef2-boot.elf "${STAGE}/bin/"
+cp build/libef2.a "${STAGE}/lib/"
 cp -R include/ef2 "${STAGE}/include/"
 cp ld/ee.ld "${STAGE}/ld/"
 cp README.md LICENSE VERSION "${STAGE}/"
-cp docs/ARCHITECTURE.md docs/ROADMAP.md "${STAGE}/docs/"
+cp docs/ARCHITECTURE.md docs/ROADMAP.md docs/AUDIO.md "${STAGE}/docs/"
 
 (
     cd "${DIST}"

@@ -30,7 +30,7 @@ jobs:
         run: make toolchain-info
 
       - name: Build and verify
-        run: make clean all check
+        run: make clean host-test all check
 
       - name: Package
         run: make package

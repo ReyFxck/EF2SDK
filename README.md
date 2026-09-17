@@ -17,12 +17,14 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - explicit NTSC/PAL video-mode selection;
 - a direct GIF FIFO path for small GS packets, without gsKit or PS2SDK libraries;
 - initial framebuffer scanout and a full-screen sprite clear smoke test;
+- a reusable `libef2.a` static library;
+- an initial source-rate-agnostic EF2Audio core with fixed-point resampling and S16 mixing;
 - CI builds for every push and pull request;
 - automatic packaged artifacts;
 - automatic GitHub Releases for `v*` tags;
 - automatic release notes grouped by PR labels.
 
-The alpha.1 background-only PCRTC experiment remained black in NetherSX2 and has been retired. The current alpha.2 `examples/boot` test configures a real GS framebuffer, scans it through read circuit 2 and submits a full-screen blue sprite directly through the GIF FIFO. Until that is visually confirmed, the video milestone remains experimental.
+The alpha.1 background-only PCRTC experiment remained black in NetherSX2 and has been retired. The alpha.2 framebuffer/GIF path was visually confirmed in NetherSX2 on 2026-09-17 with the expected vivid-blue framebuffer.
 
 ## Bootstrap policy
 
@@ -43,17 +45,18 @@ make
 make check
 ```
 
-The PoC ELF is written to:
+The build produces:
 
 ```text
 build/ef2-boot.elf
+build/libef2.a
 ```
 
 ## Smoke test
 
 The current example selects NTSC interlaced field mode, resets the GS and GIF, programs the CRT through the EE kernel syscall, configures `DISPFB2`/`DISPLAY2`, then draws a full-screen sprite into a 32-bit framebuffer using a small packed GIF packet.
 
-A successful boot should produce a solid vivid-blue screen. The smoke test writes the GIF FIFO directly; GIF DMA is intentionally deferred until this simpler path is visually validated.
+A successful boot produces a solid vivid-blue screen. This was confirmed in NetherSX2. The smoke test writes the GIF FIFO directly; GIF DMA remains the next graphics transport milestone.
 
 ## Releases
 
@@ -62,8 +65,8 @@ Pushes and pull requests produce short-lived CI artifacts.
 A tag such as:
 
 ```sh
-git tag v0.0.1-alpha.2
-git push origin v0.0.1-alpha.2
+git tag v0.0.1-alpha.3
+git push origin v0.0.1-alpha.3
 ```
 
 builds, packages and publishes a GitHub Release automatically with generated release notes.
@@ -75,6 +78,7 @@ include/             Public EF2SDK headers
 src/ee/runtime/      EE startup/runtime code
 src/ee/kernel/       Raw EE kernel interface
 src/ee/gs/           GS/video implementation
+src/ee/audio/        Rate conversion and mixer foundation
 ld/                  EF2SDK linker scripts
 examples/            Hardware/emulator smoke tests
 docs/                Architecture and roadmap
@@ -97,7 +101,7 @@ The intended order is:
 9. modern third-party library ports
 10. optional independent assembler/linker/toolchain work
 
-See [`docs/ROADMAP.md`](docs/ROADMAP.md).
+See [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`docs/AUDIO.md`](docs/AUDIO.md).
 
 ## Independence
 

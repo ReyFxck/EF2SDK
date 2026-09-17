@@ -32,7 +32,8 @@
 - [x] direct GIF FIFO packet writer
 - [x] initial GS drawing-environment register packers
 - [x] framebuffer clear implemented as a GS sprite
-- [ ] validate visible framebuffer clear in emulator/hardware
+- [x] validate visible framebuffer clear in NetherSX2 (2026-09-17)
+- [ ] validate framebuffer path on real hardware
 - [ ] automatic region/default-mode selection
 - [ ] public framebuffer allocation/configuration API
 - [ ] GIF DMA path
@@ -48,9 +49,17 @@
 
 ## P4 - Audio
 
+- [x] source-rate-agnostic S16 mono/stereo stream description
+- [x] freestanding Q32 fixed-point sample-rate converter
+- [x] nearest and linear resampling modes
+- [x] saturating S16 mixer helper
+- [x] host-side audio regression tests in CI
 - [ ] low-level SPU2 path
-- [ ] streaming ring buffer
-- [ ] explicit format/rate/channel API
+- [ ] autonomous IOP streaming ring buffer
+- [ ] per-stream and per-bus mixer
+- [ ] cubic resampler
+- [ ] band-limited/sinc resampler
+- [ ] underrun/overrun and latency diagnostics
 - [ ] hardware latency tests
 
 ## P5 - Runtime and ports
@@ -62,3 +71,12 @@
 - [ ] libpng
 - [ ] FreeType
 - [ ] SDL3 feasibility
+
+## P6 - Community extensions
+
+- [ ] unified input layer across pad and USB HID backends
+- [ ] asynchronous VFS operations
+- [ ] crash screen with exception/register diagnostics
+- [ ] lightweight profiler and GS/DMA timing counters
+- [ ] package/port workflow for modern third-party libraries
+- [ ] compatibility adapters for selected legacy PS2 homebrew APIs
