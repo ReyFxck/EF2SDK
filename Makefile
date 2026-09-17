@@ -74,10 +74,10 @@ $(IOP_AUDIO_IRX): $(IOP_AUDIO_DIR)/src/main.c $(IOP_AUDIO_DIR)/src/imports.lst $
 	cp $(IOP_AUDIO_DIR)/irx/ef2audio.irx $@
 
 $(IOP_AUDIO_DEBUG_H): $(IOP_AUDIO_IRX) | $(BUILD)
-	@addr=`$(IOP_NM) $(IOP_AUDIO_DIR)/irx/ef2audio.notiopmod.elf | awk '$${3} == "ef2audio_debug_stage" { print "0x" $${1} "u" }'`; \\
-	if [ -z "$${addr}" ]; then echo "ERROR: ef2audio_debug_stage symbol not found"; exit 1; fi; \\
+	@addr=`$(IOP_NM) $(IOP_AUDIO_DIR)/irx/ef2audio.notiopmod.elf | awk '$$3 == "ef2audio_debug_stage" { print "0x" $$1 "u" }'`; \\
+	if [ -z "$$addr" ]; then echo "ERROR: ef2audio_debug_stage symbol not found"; exit 1; fi; \\
 	printf '%s\\n' '#ifndef EF2AUDIO_DEBUG_H' '#define EF2AUDIO_DEBUG_H' \\
-	  "#define EF2AUDIO_DEBUG_STAGE_OFFSET $${addr}" '#endif' > $@
+	  "#define EF2AUDIO_DEBUG_STAGE_OFFSET $$addr" '#endif' > $@
 
 $(IOP_AUDIO_C): $(IOP_AUDIO_IRX) scripts/bin2c.py | $(BUILD)
 	$(PYTHON) scripts/bin2c.py $(IOP_AUDIO_IRX) $@ ef2audio_irx
