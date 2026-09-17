@@ -550,6 +550,14 @@ int ef2_sif_init(void)
     return 0;
 }
 
+ef2_s32 ef2_sif_debug_get_sreg(ef2_u32 index)
+{
+    if (index >= 32u)
+        return -1;
+
+    return g_sregs[index];
+}
+
 int ef2_sif_bind(ef2_sif_rpc_client *client, ef2_u32 sid)
 {
     ef2_u32 attempt;

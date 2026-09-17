@@ -42,6 +42,25 @@ static int g_play_thread = -1;
 static int g_initialized;
 static int g_started;
 
+#define EF2_DEBUG_SREG 31
+
+static void ef2_debug_stage(unsigned int stage)
+{
+    SifCmdSRegData_t packet;
+
+    packet.header.opt = 0;
+    packet.index = EF2_DEBUG_SREG;
+    packet.value = stage;
+
+    sceSifSendCmd(
+        SIF_CMD_SET_SREG,
+        &packet,
+        sizeof(packet),
+        0,
+        0,
+        0);
+}
+
 static void clear_bytes(void *ptr, ef2_u32 size)
 {
     unsigned char *p = (unsigned char *)ptr;
@@ -401,6 +420,7 @@ static void rpc_thread(void *arg)
     (void)arg;
 
     tid = GetThreadId();
+    ef2_debug_stage(7);
 
     EF2_LOG(
         EF2_LOG_PREFIX "rpc_thread entered tid=%d queue=%08x server=%08x\n",
@@ -410,10 +430,12 @@ static void rpc_thread(void *arg)
 
     EF2_LOG(EF2_LOG_PREFIX "calling sceSifInitRpc\n");
     sceSifInitRpc(0);
+    ef2_debug_stage(8);
     EF2_LOG(EF2_LOG_PREFIX "sceSifInitRpc returned\n");
 
     EF2_LOG(EF2_LOG_PREFIX "calling sceSifSetRpcQueue tid=%d\n", tid);
     sceSifSetRpcQueue(&g_rpc_queue, tid);
+    ef2_debug_stage(9);
     EF2_LOG(
         EF2_LOG_PREFIX "queue registered thread_id=%d link=%08x next=%08x active=%d\n",
         g_rpc_queue.thread_id,
@@ -432,6 +454,7 @@ static void rpc_thread(void *arg)
         0,
         0,
         &g_rpc_queue);
+    ef2_debug_stage(10);
 
     EF2_LOG(
         EF2_LOG_PREFIX "primary registered server.sid=%08x server.base=%08x queue.link=%08x\n",
@@ -451,6 +474,7 @@ static void rpc_thread(void *arg)
         0,
         0,
         &g_rpc_queue);
+    ef2_debug_stage(11);
 
     EF2_LOG(
         EF2_LOG_PREFIX "fallback registered server.sid=%08x server.base=%08x primary.link=%08x\n",
@@ -459,12 +483,14 @@ static void rpc_thread(void *arg)
         (unsigned int)g_rpc_server.link);
 
     signal_result = SignalSema(g_rpc_ready_sema);
+    ef2_debug_stage(12);
     EF2_LOG(
         EF2_LOG_PREFIX "rpc ready SignalSema(%d) -> %d\n",
         g_rpc_ready_sema,
         signal_result);
 
     EF2_LOG(EF2_LOG_PREFIX "entering sceSifRpcLoop\n");
+    ef2_debug_stage(13);
     sceSifRpcLoop(&g_rpc_queue);
 
     EF2_LOG(EF2_LOG_PREFIX "ERROR: sceSifRpcLoop returned\n");
@@ -479,6 +505,8 @@ int _start(int argc, char *argv[])
 
     (void)argv;
 
+    ef2_debug_stage(1);
+
     EF2_LOG(
         EF2_LOG_PREFIX "_start entered argc=%d primary=%08x fallback=%08x\n",
         argc,
@@ -486,9 +514,11 @@ int _start(int argc, char *argv[])
         (unsigned int)EF2_AUDIO_RPC_SID_FALLBACK);
 
     FlushDcache();
+    ef2_debug_stage(2);
     EF2_LOG(EF2_LOG_PREFIX "FlushDcache done\n");
 
     CpuEnableIntr();
+    ef2_debug_stage(3);
     EF2_LOG(EF2_LOG_PREFIX "CpuEnableIntr done\n");
 
     thread.attr = TH_C;
@@ -505,6 +535,7 @@ int _start(int argc, char *argv[])
      * context without reintroducing the EE/IOP bind race.
      */
     g_rpc_ready_sema = create_semaphore(0, 1);
+    ef2_debug_stage(4);
     EF2_LOG(
         EF2_LOG_PREFIX "rpc ready sema=%d\n",
         g_rpc_ready_sema);
@@ -515,12 +546,16 @@ int _start(int argc, char *argv[])
     }
 
     thread_id = CreateThread(&thread);
+    if (thread_id >= 0)
+        ef2_debug_stage(5);
     EF2_LOG(EF2_LOG_PREFIX "rpc CreateThread -> %d\n", thread_id);
 
     if (thread_id < 0)
         return MODULE_NO_RESIDENT_END;
 
     start_result = StartThread(thread_id, 0);
+    if (start_result >= 0)
+        ef2_debug_stage(6);
     EF2_LOG(EF2_LOG_PREFIX "rpc StartThread -> %d\n", start_result);
 
     if (start_result < 0)

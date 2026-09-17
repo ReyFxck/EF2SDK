@@ -32,6 +32,7 @@ typedef struct {
 } ef2_sif_rpc_client;
 
 int ef2_sif_init(void);
+ef2_s32 ef2_sif_debug_get_sreg(ef2_u32 index);
 int ef2_sif_bind(ef2_sif_rpc_client *client, ef2_u32 sid);
 int ef2_sif_call(
     ef2_sif_rpc_client *client,

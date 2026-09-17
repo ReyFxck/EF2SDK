@@ -249,3 +249,19 @@ to the embedded IRX path, so the standalone behavior is preserved.
 IOP tracing now emits through both `printf` (stdio) and `Kprintf` using the
 same `[EF2AUDIO]` prefix. This is diagnostic-only duplication intended to
 maximize visibility across emulators and BIOS/debug configurations.
+
+
+## Alpha.12: SIFCMD stage telemetry
+
+Android SAF-backed `host:` loading was removed from the diagnostic path after
+NetherSX2 rejected a same-directory content URI as "outside of ELF directory".
+
+Alpha.12 keeps the embedded IRX path and adds an RPC-independent telemetry
+channel. The IOP module sends stage numbers 1..13 to EE SREG 31 using the
+existing SIFCMD system command. After the embedded load attempt, the EE reads
+that SREG and deliberately asks LOADFILE for a non-existent ROM module named
+`EF2DBGxx`. NetherSX2 logs that path request, so emulog now exposes the last
+IOP stage even when IOP printf/Kprintf output is hidden.
+
+Stage 00 means no IRX stage message reached the EE. Stage 13 means the worker
+registered both RPC SIDs, signalled readiness, and reached `sceSifRpcLoop`.

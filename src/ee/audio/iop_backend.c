@@ -10,6 +10,52 @@ static ef2_audio_rpc_submit g_submit_buffer EF2_ALIGN(64);
 static ef2_audio_rpc_reply g_reply_buffer EF2_ALIGN(64);
 static ef2_s32 g_audio_bound;
 
+#define EF2_AUDIO_DEBUG_SREG 31u
+
+static void audio_debug_emit_loader_marker(ef2_s32 stage)
+{
+    const char *path;
+
+    switch (stage) {
+        case 1:  path = "rom0:EF2DBG01"; break;
+        case 2:  path = "rom0:EF2DBG02"; break;
+        case 3:  path = "rom0:EF2DBG03"; break;
+        case 4:  path = "rom0:EF2DBG04"; break;
+        case 5:  path = "rom0:EF2DBG05"; break;
+        case 6:  path = "rom0:EF2DBG06"; break;
+        case 7:  path = "rom0:EF2DBG07"; break;
+        case 8:  path = "rom0:EF2DBG08"; break;
+        case 9:  path = "rom0:EF2DBG09"; break;
+        case 10: path = "rom0:EF2DBG10"; break;
+        case 11: path = "rom0:EF2DBG11"; break;
+        case 12: path = "rom0:EF2DBG12"; break;
+        case 13: path = "rom0:EF2DBG13"; break;
+        default: path = "rom0:EF2DBG00"; break;
+    }
+
+    /*
+     * These names intentionally do not exist. NetherSX2 logs LOADFILE path
+     * requests, giving us a reliable textual trace of the last IOP stage even
+     * when Kprintf/stdio output is not surfaced by the emulator.
+     */
+    (void)ef2_iop_load_module(path);
+}
+
+static ef2_s32 audio_debug_wait_stage(void)
+{
+    ef2_u32 spin;
+    ef2_s32 stage = 0;
+
+    for (spin = 0; spin < 0x00400000u; ++spin) {
+        stage = ef2_sif_debug_get_sreg(EF2_AUDIO_DEBUG_SREG);
+        if (stage >= 13)
+            break;
+        __asm__ volatile("nop");
+    }
+
+    return stage;
+}
+
 static void audio_zero(void *ptr, ef2_u32 size)
 {
     ef2_u8 *p = (ef2_u8 *)ptr;
@@ -56,20 +102,15 @@ int ef2_audio_device_init(void)
     (void)ef2_iop_load_module_ex("rom0:LIBSD", &libsd_modres);
 
     /*
-     * Diagnostic path: when ef2audio.irx sits next to the ELF on the host
-     * device, prefer the normal path-based loader. NetherSX2 logs this loader
-     * path and its return value explicitly, which lets us verify _start and
-     * imports independently of the embedded LoadModuleBuffer path.
+     * Embedded IRX remains the real EF2SDK path. Android SAF-backed host:
+     * paths are unreliable in some Aether/NetherSX2 builds, so alpha.12
+     * diagnoses the embedded path without filesystem assistance.
      */
-    result = ef2_iop_load_module_ex("host:ef2audio.irx", &audio_modres);
-
-    if (result < 0 || audio_modres != 0) {
-        audio_modres = -1;
-        result = ef2_iop_exec_module_buffer_ex(
-            ef2audio_irx,
-            ef2audio_irx_size,
-            &audio_modres);
-    }
+    audio_modres = -1;
+    result = ef2_iop_exec_module_buffer_ex(
+        ef2audio_irx,
+        ef2audio_irx_size,
+        &audio_modres);
 
     if (result < 0) {
         int patch_result = ef2_iop_enable_module_buffer();
@@ -85,6 +126,16 @@ int ef2_audio_device_init(void)
 
         if (result < 0)
             return -2500 + result;
+    }
+
+    /*
+     * Emit the last stage through the emulator-visible LOADFILE log. This is
+     * intentionally done before trusting modres, because alpha.10 showed that
+     * a broken return path can otherwise make a zeroed result look valid.
+     */
+    {
+        ef2_s32 debug_stage = audio_debug_wait_stage();
+        audio_debug_emit_loader_marker(debug_stage);
     }
 
     /*

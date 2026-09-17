@@ -7,6 +7,7 @@ I_sceSdBlockTransStatus
 libsd_IMPORTS_end
 
 sifcmd_IMPORTS_start
+I_sceSifSendCmd
 I_sceSifInitRpc
 I_sceSifSetRpcQueue
 I_sceSifRegisterRpc
