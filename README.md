@@ -15,13 +15,14 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - a raw EE kernel syscall wrapper for `SetGsCrt`;
 - initial GS privileged-register definitions;
 - explicit NTSC/PAL video-mode selection;
-- a background-only PCRTC smoke test that requires no framebuffer, GIF DMA or gsKit;
+- a direct GIF FIFO path for small GS packets, without gsKit or PS2SDK libraries;
+- initial framebuffer scanout and a full-screen sprite clear smoke test;
 - CI builds for every push and pull request;
 - automatic packaged artifacts;
 - automatic GitHub Releases for `v*` tags;
 - automatic release notes grouped by PR labels.
 
-The current `examples/boot` build should show a vivid blue screen when the minimal GS/PCRTC path works. Until that is visually confirmed, the video milestone remains experimental.
+The alpha.1 background-only PCRTC experiment remained black in NetherSX2 and has been retired. The current alpha.2 `examples/boot` test configures a real GS framebuffer, scans it through read circuit 2 and submits a full-screen blue sprite directly through the GIF FIFO. Until that is visually confirmed, the video milestone remains experimental.
 
 ## Bootstrap policy
 
@@ -50,9 +51,9 @@ build/ef2-boot.elf
 
 ## Smoke test
 
-The current example selects NTSC, interlaced field mode, resets the GS, programs the CRT through the EE kernel syscall and switches the PCRTC merge output to `BGCOLOR`.
+The current example selects NTSC interlaced field mode, resets the GS and GIF, programs the CRT through the EE kernel syscall, configures `DISPFB2`/`DISPLAY2`, then draws a full-screen sprite into a 32-bit framebuffer using a small packed GIF packet.
 
-A successful boot should produce a solid blue screen. This stage intentionally does **not** allocate a GS framebuffer or submit GIF packets yet.
+A successful boot should produce a solid vivid-blue screen. The smoke test writes the GIF FIFO directly; GIF DMA is intentionally deferred until this simpler path is visually validated.
 
 ## Releases
 
@@ -61,8 +62,8 @@ Pushes and pull requests produce short-lived CI artifacts.
 A tag such as:
 
 ```sh
-git tag v0.0.1-alpha.1
-git push origin v0.0.1-alpha.1
+git tag v0.0.1-alpha.2
+git push origin v0.0.1-alpha.2
 ```
 
 builds, packages and publishes a GitHub Release automatically with generated release notes.
