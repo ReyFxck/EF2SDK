@@ -93,8 +93,8 @@ check: $(ELF)
 	done
 	@echo "== EF2SDK library symbols =="
 	@for sym in ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_audio_mix_s16; do \
-		if ! $(NM) $(LIB) | grep -q " $sym$"; then \
-			echo "ERROR: missing library symbol $sym"; exit 1; \
+		if ! $(NM) $(LIB) | grep -q " $$sym$$"; then \
+			echo "ERROR: missing library symbol $$sym"; exit 1; \
 		fi; \
 	done
 	@echo "== Disassembly preview =="
