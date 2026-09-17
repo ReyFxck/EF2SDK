@@ -8,27 +8,32 @@
 - [x] freestanding build
 - [x] CI artifacts
 - [x] tag-driven releases
-- [ ] boot confirmation in ARMSX2
+- [x] boot confirmation in NetherSX2
+- [ ] boot confirmation in ARMSX2 (currently reaches OSDSYS instead of direct ELF boot)
 - [ ] boot confirmation on real hardware
 
 ## P1 - EE runtime
 
-- [ ] BSS initialization
-- [ ] argc/argv handoff
+- [x] BSS initialization
+- [ ] argc/argv public ABI
 - [ ] clean exit path
 - [ ] cache helpers
-- [ ] kernel syscall wrappers
+- [x] first raw kernel syscall wrapper (`SetGsCrt`, syscall 0x02)
+- [ ] general kernel syscall wrappers
 - [ ] interrupt primitives
 - [ ] timers
 
 ## P2 - Video
 
-- [ ] GS register definitions
-- [ ] safe video-mode initialization
-- [ ] PAL/NTSC handling
+- [x] initial GS privileged register definitions
+- [x] explicit NTSC/PAL mode selection
+- [x] background-only PCRTC smoke-test path
+- [ ] validate visible background smoke test in emulator/hardware
+- [ ] automatic region/default-mode selection
 - [ ] framebuffer API
 - [ ] DMA/GIF primitives
-- [ ] first visible hardware smoke test
+- [ ] GS drawing-environment registers
+- [ ] first framebuffer clear / primitive draw
 
 ## P3 - Input and IOP
 
