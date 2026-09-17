@@ -42,6 +42,7 @@ int ef2_sif_call(
     ef2_u32 receive_size);
 
 int ef2_iop_load_module(const char *path);
+int ef2_iop_load_module_ex(const char *path, ef2_s32 *module_result);
 
 /*
  * Enables the legacy ROM LOADFILE module-buffer RPC on systems that ship
@@ -51,6 +52,10 @@ int ef2_iop_load_module(const char *path);
 int ef2_iop_enable_module_buffer(void);
 
 int ef2_iop_exec_module_buffer(const void *module, ef2_u32 size);
+int ef2_iop_exec_module_buffer_ex(
+    const void *module,
+    ef2_u32 size,
+    ef2_s32 *module_result);
 
 #ifdef __cplusplus
 }

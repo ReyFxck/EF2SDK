@@ -72,13 +72,16 @@ static void generate_melody_window(ef2_u32 source_frame)
 static void show_init_failure(ef2_s32 status)
 {
     if (status <= -4000) {
-        /* Red: ef2audio RPC reached the IOP but SPU2/libsd init failed. */
+        /* Red: RPC bound; SPU2/libsd initialization inside ef2audio failed. */
         ef2_video_clear(220, 40, 48);
     } else if (status <= -3000) {
-        /* Orange: ef2audio IRX did not register/bind its RPC service. */
+        /* Orange: IRX stayed resident but its RPC SID could not be bound. */
         ef2_video_clear(232, 112, 24);
+    } else if (status <= -2800) {
+        /* Blue-violet: IRX _start returned non-resident (modres != 0). */
+        ef2_video_clear(88, 72, 216);
     } else if (status <= -2000) {
-        /* Purple: embedded IRX LoadModuleBuffer path failed. */
+        /* Purple: embedded IRX LoadModuleBuffer/patch path failed. */
         ef2_video_clear(168, 48, 208);
     } else if (status <= -1000) {
         /* Yellow: base SIFCMD/RPC initialization failed. */

@@ -41,26 +41,48 @@ static int audio_rpc_simple(ef2_s32 function)
 int ef2_audio_device_init(void)
 {
     int result;
+    ef2_s32 libsd_modres = -1;
+    ef2_s32 audio_modres = -1;
 
     result = ef2_sif_init();
     if (result < 0)
         return -1000 + result;
 
-    (void)ef2_iop_load_module("rom0:LIBSD");
+    /*
+     * ROM LIBSD may already be resident. A negative module-id result alone is
+     * therefore not fatal; the authoritative test is whether ef2audio.irx can
+     * start and remain resident with its libsd import resolved.
+     */
+    (void)ef2_iop_load_module_ex("rom0:LIBSD", &libsd_modres);
 
-    result = ef2_iop_exec_module_buffer(ef2audio_irx, ef2audio_irx_size);
+    result = ef2_iop_exec_module_buffer_ex(
+        ef2audio_irx,
+        ef2audio_irx_size,
+        &audio_modres);
+
     if (result < 0) {
         int patch_result = ef2_iop_enable_module_buffer();
 
         if (patch_result < 0)
             return -2000 + patch_result;
 
-        result = ef2_iop_exec_module_buffer(
+        audio_modres = -1;
+        result = ef2_iop_exec_module_buffer_ex(
             ef2audio_irx,
-            ef2audio_irx_size);
+            ef2audio_irx_size,
+            &audio_modres);
+
         if (result < 0)
             return -2500 + result;
     }
+
+    /*
+     * MODULE_RESIDENT_END is 0. Any other module-start result means the IRX
+     * was parsed/started but did not remain installed, so binding its SID can
+     * never succeed.
+     */
+    if (audio_modres != 0)
+        return -2800 - (audio_modres & 0xFF);
 
     audio_zero(&g_audio_client, sizeof(g_audio_client));
 

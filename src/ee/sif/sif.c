@@ -1090,8 +1090,11 @@ int ef2_iop_enable_module_buffer(void)
     return 0;
 }
 
-int ef2_iop_load_module(const char *path)
+int ef2_iop_load_module_ex(const char *path, ef2_s32 *module_result)
 {
+    if (module_result != (ef2_s32 *)0)
+        *module_result = -1;
+
     if (path == (const char *)0)
         return -1;
 
@@ -1111,14 +1114,28 @@ int ef2_iop_load_module(const char *path)
             8) < 0)
         return -3;
 
+    if (module_result != (ef2_s32 *)0)
+        *module_result = g_load_arg.modres;
+
     return g_load_arg.p.result;
 }
 
-int ef2_iop_exec_module_buffer(const void *module, ef2_u32 size)
+int ef2_iop_load_module(const char *path)
+{
+    return ef2_iop_load_module_ex(path, (ef2_s32 *)0);
+}
+
+int ef2_iop_exec_module_buffer_ex(
+    const void *module,
+    ef2_u32 size,
+    ef2_s32 *module_result)
 {
     void *iop_address;
     ef2_u32 allocation_size;
     int result;
+
+    if (module_result != (ef2_s32 *)0)
+        *module_result = -1;
 
     if (module == (const void *)0 || size == 0)
         return -1;
@@ -1153,5 +1170,16 @@ int ef2_iop_exec_module_buffer(const void *module, ef2_u32 size)
     if (result < 0)
         return -5;
 
+    if (module_result != (ef2_s32 *)0)
+        *module_result = g_load_buffer_arg.q.modres;
+
     return g_load_buffer_arg.p.result;
+}
+
+int ef2_iop_exec_module_buffer(const void *module, ef2_u32 size)
+{
+    return ef2_iop_exec_module_buffer_ex(
+        module,
+        size,
+        (ef2_s32 *)0);
 }

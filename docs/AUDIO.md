@@ -189,3 +189,20 @@ MODULE_RESIDENT_END. The worker thread now only runs sceSifRpcLoop().
 
 The EE bind loop also tolerates a much longer registration window so future
 IOP services do not depend on scheduler timing.
+
+
+## Alpha.7: LOADFILE module-start result diagnostics
+
+LOADFILE returns both a module identifier and a module-start result
+(`modres`). Earlier smoke builds only checked the identifier, which can make
+"IRX loaded" look like "IRX stayed resident" even when its `_start` returns a
+non-resident status.
+
+Alpha.7 exposes both values in the EF2 loader and treats
+`MODULE_RESIDENT_END == 0` as a required condition before attempting to bind
+the EF2Audio SID.
+
+The blue-violet diagnostic specifically means the embedded IRX was accepted
+by LOADFILE but its `_start` did not remain resident. Orange now means the
+IRX *did* report resident, so the remaining fault is genuinely RPC
+registration/binding.
