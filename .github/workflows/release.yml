@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Match VERSION to tag
+        shell: bash
+        run: |
+          expected="v$(cat VERSION)"
+          if [[ "$GITHUB_REF_NAME" != "$expected" ]]; then
+            echo "Tag $GITHUB_REF_NAME does not match VERSION ($expected)."
+            exit 1
+          fi
+
+      - name: Build, verify and package
+        run: |
+          docker run --rm \
+            -v "$PWD:/src" \
+            -w /src \
+            ghcr.io/ps2dev/ps2dev:latest \
+            sh -lc 'apk add --no-cache make file zip >/dev/null && make package'
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/*.zip \
+            dist/*.tar.gz \
+            build/ef2-boot.elf \
+            --title "EF2SDK $GITHUB_REF_NAME" \
+            --generate-notes \
+            --verify-tag

@@ -1,0 +1,7 @@
+/build/
+/dist/
+*.map
+*.o
+*.a
+*.elf
+.DS_Store

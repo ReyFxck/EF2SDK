@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ee-poc:
+    name: EE freestanding PoC
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Toolchain info
+        run: |
+          docker run --rm \
+            -v "$PWD:/src" \
+            -w /src \
+            ghcr.io/ps2dev/ps2dev:latest \
+            sh -lc 'apk add --no-cache make file zip >/dev/null && make toolchain-info'
+
+      - name: Build and verify
+        run: |
+          docker run --rm \
+            -v "$PWD:/src" \
+            -w /src \
+            ghcr.io/ps2dev/ps2dev:latest \
+            sh -lc 'apk add --no-cache make file zip >/dev/null && make clean all check'
+
+      - name: Package
+        run: |
+          docker run --rm \
+            -v "$PWD:/src" \
+            -w /src \
+            ghcr.io/ps2dev/ps2dev:latest \
+            sh -lc 'apk add --no-cache make file zip >/dev/null && make package'
+
+      - name: Upload development artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: EF2SDK-${{ github.sha }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+            build/ef2-boot.elf
+            build/ef2-boot.map
+          if-no-files-found: error
+          retention-days: 14
