@@ -557,7 +557,7 @@ int ef2_sif_bind(ef2_sif_rpc_client *client, ef2_u32 sid)
     if (client == (ef2_sif_rpc_client *)0)
         return -1;
 
-    for (attempt = 0; attempt < 64u; ++attempt) {
+    for (attempt = 0; attempt < 4096u; ++attempt) {
         ef2_rpc_bind_packet *bind =
             (ef2_rpc_bind_packet *)ef2_rpc_alloc_packet();
 

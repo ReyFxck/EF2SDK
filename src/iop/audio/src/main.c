@@ -334,17 +334,6 @@ static void *rpc_handler(int function, void *buffer, int length)
 static void rpc_thread(void *arg)
 {
     (void)arg;
-
-    sceSifInitRpc(0);
-    sceSifSetRpcQueue(&g_rpc_queue, GetThreadId());
-    sceSifRegisterRpc(
-        &g_rpc_server,
-        EF2_AUDIO_RPC_SID,
-        rpc_handler,
-        g_rpc_input,
-        0,
-        0,
-        &g_rpc_queue);
     sceSifRpcLoop(&g_rpc_queue);
 }
 
@@ -365,9 +354,27 @@ int _start(int argc, char *argv[])
     thread.stacksize = 0x1000;
     thread.priority = 40;
 
+    /*
+     * Register the RPC service before returning from _start. The EE loader
+     * resumes as soon as module start completes, so deferring registration to
+     * the worker thread creates a race where an immediate bind can observe no
+     * server even though the IRX loaded successfully.
+     */
+    sceSifInitRpc(0);
+
     thread_id = CreateThread(&thread);
     if (thread_id < 0)
         return MODULE_NO_RESIDENT_END;
+
+    sceSifSetRpcQueue(&g_rpc_queue, thread_id);
+    sceSifRegisterRpc(
+        &g_rpc_server,
+        EF2_AUDIO_RPC_SID,
+        rpc_handler,
+        g_rpc_input,
+        0,
+        0,
+        &g_rpc_queue);
 
     if (StartThread(thread_id, 0) < 0)
         return MODULE_NO_RESIDENT_END;

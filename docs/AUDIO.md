@@ -174,3 +174,18 @@ The boot screen now distinguishes initialization stages:
 
 This is intentionally a temporary bring-up diagnostic until text rendering is
 available in the freestanding smoke ELF.
+
+
+## Alpha.6: deterministic RPC registration
+
+The first alpha.5 hardware test reached the orange diagnostic stage: the
+embedded IRX loaded, but the EE could not bind the EF2Audio RPC service.
+
+The server used to be registered from the newly-created IOP worker thread,
+which meant the EE could resume after module start and race the worker before
+it had registered the SID. Alpha.6 registers the queue and server
+synchronously inside the IRX _start routine before returning
+MODULE_RESIDENT_END. The worker thread now only runs sceSifRpcLoop().
+
+The EE bind loop also tolerates a much longer registration window so future
+IOP services do not depend on scheduler timing.
