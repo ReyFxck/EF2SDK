@@ -730,6 +730,366 @@ static int ef2_sif_dma_to_iop(const void *source, void *dest, ef2_u32 size)
     return 0;
 }
 
+
+#define EF2_IOP_WINDOW_BASE 0xBC000000u
+
+typedef struct {
+    ef2_u32 next;
+    ef2_u32 name;
+    ef2_u16 version;
+    ef2_u16 newflags;
+    ef2_u16 id;
+    ef2_u16 unused;
+    ef2_u32 entry;
+    ef2_u32 gp;
+    ef2_u32 text_start;
+    ef2_u32 text_size;
+    ef2_u32 data_size;
+    ef2_u32 bss_size;
+    ef2_u32 unused1;
+    ef2_u32 unused2;
+} ef2_iop_module_info;
+
+typedef struct {
+    ef2_u32 prev;
+    ef2_u32 caller;
+    ef2_u16 version;
+    ef2_u16 flags;
+    ef2_u8 name[8];
+    ef2_u32 exports[20];
+} ef2_iop_export_lib;
+
+static int ef2_bytes_match(
+    const ef2_u8 *left,
+    const char *right,
+    ef2_u32 count)
+{
+    ef2_u32 i;
+
+    for (i = 0; i < count; ++i) {
+        if (left[i] != (ef2_u8)right[i])
+            return 0;
+    }
+
+    return 1;
+}
+
+static void ef2_iop_window_enter(void)
+{
+    ef2_u32 status;
+
+    __asm__ volatile(
+        "di\n\t"
+        "sync.p\n\t"
+        "mfc0 %0, $12\n\t"
+        : "=r"(status)
+        :
+        : "memory");
+
+    status &= ~0x18u;
+
+    __asm__ volatile(
+        "mtc0 %0, $12\n\t"
+        "sync.p\n\t"
+        :
+        : "r"(status)
+        : "memory");
+}
+
+static void ef2_iop_window_exit(void)
+{
+    ef2_u32 status;
+
+    __asm__ volatile(
+        "mfc0 %0, $12\n\t"
+        : "=r"(status)
+        :
+        : "memory");
+
+    status |= 0x10u;
+
+    __asm__ volatile(
+        "mtc0 %0, $12\n\t"
+        "sync.p\n\t"
+        "ei\n\t"
+        :
+        : "r"(status)
+        : "memory");
+}
+
+static int ef2_iop_read(
+    ef2_u32 iop_address,
+    void *destination,
+    ef2_u32 size)
+{
+    volatile const ef2_u8 *source;
+    ef2_u8 *dest = (ef2_u8 *)destination;
+    ef2_u32 i;
+
+    if (destination == (void *)0 || size == 0)
+        return -1;
+
+    source = (volatile const ef2_u8 *)(EF2_IOP_WINDOW_BASE + iop_address);
+
+    ef2_iop_window_enter();
+    for (i = 0; i < size; ++i)
+        dest[i] = source[i];
+    ef2_iop_window_exit();
+
+    return 0;
+}
+
+static int ef2_iop_find_module(
+    const char *name,
+    ef2_u32 name_length,
+    ef2_iop_module_info *found)
+{
+    ef2_u32 address = 0x800u;
+    ef2_u32 pass;
+
+    for (pass = 0; pass < 128u; ++pass) {
+        ef2_iop_module_info info;
+        ef2_u8 module_name[64];
+
+        if (ef2_iop_read(address, &info, sizeof(info)) < 0)
+            return -1;
+
+        if (info.name != 0) {
+            if (ef2_iop_read(info.name, module_name, sizeof(module_name)) < 0)
+                return -2;
+
+            if (name_length < sizeof(module_name) &&
+                ef2_bytes_match(module_name, name, name_length) &&
+                module_name[name_length] == 0) {
+                *found = info;
+                return 0;
+            }
+        }
+
+        if (info.next == 0)
+            break;
+
+        address = info.next;
+    }
+
+    return -3;
+}
+
+static int ef2_iop_find_modload_exports(
+    ef2_u32 *start_module,
+    ef2_u32 *load_module_buffer)
+{
+    ef2_iop_module_info list_head;
+    ef2_iop_module_info loadcore;
+    ef2_u8 scan[512] EF2_ALIGN(64);
+    ef2_u32 loadcore_end;
+    ef2_u32 get_internal = 0;
+    ef2_u32 internal_code[2];
+    ef2_u32 export_list_addr;
+    ef2_u32 export_list[2];
+    ef2_u32 current;
+    ef2_u32 i;
+    ef2_u32 pass;
+
+    if (ef2_iop_read(0x800u, &list_head, sizeof(list_head)) < 0)
+        return -1;
+
+    if (list_head.next == 0)
+        return -2;
+
+    if (ef2_iop_read(list_head.next, &loadcore, sizeof(loadcore)) < 0)
+        return -3;
+
+    loadcore_end = loadcore.text_start + loadcore.text_size;
+    if (loadcore_end < 512u)
+        return -4;
+
+    if (ef2_iop_read(loadcore_end - 512u, scan, sizeof(scan)) < 0)
+        return -5;
+
+    for (i = 0; i + 88u <= sizeof(scan); i += 4u) {
+        ef2_u32 previous = *(const ef2_u32 *)(scan + i);
+
+        if (previous == 0x830u &&
+            ef2_bytes_match(scan + i + 12u, "loadcore", 8u)) {
+            const ef2_u32 *exports =
+                (const ef2_u32 *)(scan + i + 20u);
+            get_internal = exports[3];
+            break;
+        }
+    }
+
+    if (get_internal == 0)
+        return -6;
+
+    if (ef2_iop_read(get_internal, internal_code, sizeof(internal_code)) < 0)
+        return -7;
+
+    if ((internal_code[0] & 0xFFFF0000u) != 0x3C020000u ||
+        (internal_code[1] & 0xFFFF0000u) != 0x24420000u)
+        return -8;
+
+    export_list_addr =
+        ((internal_code[0] & 0xFFFFu) << 16) +
+        (ef2_s32)(ef2_s16)(internal_code[1] & 0xFFFFu);
+
+    if (ef2_iop_read(export_list_addr, export_list, sizeof(export_list)) < 0)
+        return -9;
+
+    current = export_list[0];
+
+    for (pass = 0; pass < 128u && current != 0; ++pass) {
+        ef2_iop_export_lib library;
+
+        if (ef2_iop_read(current, &library, sizeof(library)) < 0)
+            return -10;
+
+        if (ef2_bytes_match(library.name, "modload", 7u)) {
+            if (library.exports[8] == 0 || library.exports[10] == 0)
+                return -11;
+
+            *start_module = library.exports[8];
+            *load_module_buffer = library.exports[10];
+            return 0;
+        }
+
+        current = library.prev;
+    }
+
+    return -12;
+}
+
+static int ef2_iop_write_word_dma(
+    ef2_u32 iop_address,
+    ef2_u32 value)
+{
+    ef2_u8 block[64] EF2_ALIGN(64);
+    ef2_u32 aligned = iop_address & ~63u;
+    ef2_u32 offset = iop_address & 63u;
+
+    if (offset > 60u)
+        return -1;
+
+    if (ef2_iop_read(aligned, block, sizeof(block)) < 0)
+        return -2;
+
+    *(ef2_u32 *)(block + offset) = value;
+
+    return ef2_sif_dma_to_iop(
+        block,
+        (void *)aligned,
+        sizeof(block));
+}
+
+int ef2_iop_enable_module_buffer(void)
+{
+    static const ef2_u32 patch_template[32] = {
+        0x27BDFFD8u, 0xAFB00018u, 0xAFBF0020u, 0x00808021u,
+        0x8C840000u, 0x0C000000u, 0xAFB1001Cu, 0x3C110000u,
+        0x04400008u, 0x36310000u, 0x00402021u, 0x26250008u,
+        0x8E060004u, 0x26070104u, 0x26280004u, 0x0C000000u,
+        0xAFA80010u, 0xAE220000u, 0x02201021u, 0x8FBF0020u,
+        0x8FB1001Cu, 0x8FB00018u, 0x03E00008u, 0x27BD0028u,
+        0x00000000u, 0x00000000u, 0x7962424Cu, 0x00004545u,
+        0x00000000u, 0x00000000u, 0x00000000u, 0x00000000u
+    };
+    ef2_iop_module_info loadfile;
+    ef2_u32 dispatch[32] EF2_ALIGN(64);
+    ef2_u32 patch[32] EF2_ALIGN(64);
+    ef2_u32 start_module;
+    ef2_u32 load_module_buffer;
+    ef2_u32 dispatch_address;
+    ef2_u32 jump_table_end;
+    ef2_u32 result_address;
+    void *patch_address;
+    ef2_u32 i;
+    int result;
+
+    result = ef2_iop_find_modload_exports(
+        &start_module,
+        &load_module_buffer);
+    if (result < 0)
+        return -100 + result;
+
+    result = ef2_iop_find_module(
+        "LoadModuleByEE",
+        14u,
+        &loadfile);
+    if (result < 0)
+        return -200 + result;
+
+    if (loadfile.text_size < 0x544u)
+        return -301;
+
+    dispatch_address = loadfile.text_start + 0x4C4u;
+
+    if (ef2_iop_read(
+            dispatch_address,
+            dispatch,
+            sizeof(dispatch)) < 0)
+        return -302;
+
+    /*
+     * Legacy ROM LOADFILE checks function < 6. If it already accepts
+     * function 6, nothing needs patching.
+     */
+    if (dispatch[1] == 0x2C820007u)
+        return 0;
+
+    if (dispatch[0] != 0x27BDFFE8u ||
+        dispatch[1] != 0x2C820006u ||
+        dispatch[2] != 0x14400003u ||
+        dispatch[3] != 0xAFBF0010u ||
+        dispatch[5] != 0x00001021u ||
+        dispatch[6] != 0x00041080u)
+        return -303;
+
+    jump_table_end =
+        ((dispatch[7] & 0xFFFFu) << 16) +
+        (ef2_s32)(ef2_s16)(dispatch[9] & 0xFFFFu) +
+        0x18u;
+
+    patch_address = ef2_iop_alloc(sizeof(patch));
+    if (patch_address == (void *)0)
+        return -304;
+
+    for (i = 0; i < 32u; ++i)
+        patch[i] = patch_template[i];
+
+    result_address = (ef2_u32)patch_address + 96u;
+
+    patch[5] =
+        0x0C000000u |
+        ((load_module_buffer >> 2) & 0x03FFFFFFu);
+    patch[7] =
+        0x3C110000u |
+        ((result_address >> 16) & 0xFFFFu);
+    patch[9] =
+        0x36310000u |
+        (result_address & 0xFFFFu);
+    patch[15] =
+        0x0C000000u |
+        ((start_module >> 2) & 0x03FFFFFFu);
+
+    if (ef2_sif_dma_to_iop(
+            patch,
+            patch_address,
+            sizeof(patch)) < 0)
+        return -305;
+
+    if (ef2_iop_write_word_dma(
+            jump_table_end,
+            (ef2_u32)patch_address) < 0)
+        return -306;
+
+    if (ef2_iop_write_word_dma(
+            dispatch_address + 4u,
+            0x2C820007u) < 0)
+        return -307;
+
+    return 0;
+}
+
 int ef2_iop_load_module(const char *path)
 {
     if (path == (const char *)0)

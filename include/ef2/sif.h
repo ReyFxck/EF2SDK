@@ -42,6 +42,14 @@ int ef2_sif_call(
     ef2_u32 receive_size);
 
 int ef2_iop_load_module(const char *path);
+
+/*
+ * Enables the legacy ROM LOADFILE module-buffer RPC on systems that ship
+ * without it. Returns 0 on success/already enabled and a negative stage code
+ * if the legacy dispatcher cannot be located or patched.
+ */
+int ef2_iop_enable_module_buffer(void);
+
 int ef2_iop_exec_module_buffer(const void *module, ef2_u32 size);
 
 #ifdef __cplusplus

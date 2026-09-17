@@ -155,3 +155,22 @@ The smoke ELF uses screen color as a simple hardware diagnostic:
 The first ring capacity is 8192 stereo frames, about 171 ms at 48 kHz. It is
 large on purpose so a short EE stall does not immediately become an audible
 underrun.
+
+
+## Alpha.5 loader diagnostics
+
+The standalone ELF now retries embedded IRX loading through a small EF2-owned
+legacy LOADFILE patch when the ROM service rejects function 6
+(LoadModuleBuffer). This keeps the smoke test self-contained without linking
+libsbv into the EE executable.
+
+The boot screen now distinguishes initialization stages:
+
+- yellow: EE SIFCMD/RPC initialization;
+- purple: embedded IRX / legacy LoadModuleBuffer patch;
+- orange: ef2audio RPC registration or bind;
+- red: ef2audio reached the IOP but audio/SPU2 initialization failed;
+- teal-green: streaming started.
+
+This is intentionally a temporary bring-up diagnostic until text rendering is
+available in the freestanding smoke ELF.

@@ -47,19 +47,32 @@ int ef2_audio_device_init(void)
         return -1000 + result;
 
     (void)ef2_iop_load_module("rom0:LIBSD");
-    (void)ef2_iop_exec_module_buffer(ef2audio_irx, ef2audio_irx_size);
+
+    result = ef2_iop_exec_module_buffer(ef2audio_irx, ef2audio_irx_size);
+    if (result < 0) {
+        int patch_result = ef2_iop_enable_module_buffer();
+
+        if (patch_result < 0)
+            return -2000 + patch_result;
+
+        result = ef2_iop_exec_module_buffer(
+            ef2audio_irx,
+            ef2audio_irx_size);
+        if (result < 0)
+            return -2500 + result;
+    }
 
     audio_zero(&g_audio_client, sizeof(g_audio_client));
 
     result = ef2_sif_bind(&g_audio_client, EF2_AUDIO_RPC_SID);
     if (result < 0)
-        return -2000 + result;
+        return -3000 + result;
 
     g_audio_bound = 1;
 
     result = audio_rpc_simple(EF2_AUDIO_RPC_INIT);
     if (result < 0)
-        return -3000 + result;
+        return -4000 + result;
 
     return 0;
 }

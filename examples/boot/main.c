@@ -68,6 +68,27 @@ static void generate_melody_window(ef2_u32 source_frame)
     }
 }
 
+
+static void show_init_failure(ef2_s32 status)
+{
+    if (status <= -4000) {
+        /* Red: ef2audio RPC reached the IOP but SPU2/libsd init failed. */
+        ef2_video_clear(220, 40, 48);
+    } else if (status <= -3000) {
+        /* Orange: ef2audio IRX did not register/bind its RPC service. */
+        ef2_video_clear(232, 112, 24);
+    } else if (status <= -2000) {
+        /* Purple: embedded IRX LoadModuleBuffer path failed. */
+        ef2_video_clear(168, 48, 208);
+    } else if (status <= -1000) {
+        /* Yellow: base SIFCMD/RPC initialization failed. */
+        ef2_video_clear(232, 200, 32);
+    } else {
+        /* White: unexpected non-stage error. */
+        ef2_video_clear(224, 224, 224);
+    }
+}
+
 int main(void)
 {
     const ef2_video_config video = {
@@ -93,7 +114,7 @@ int main(void)
 
     ef2_audio_status = ef2_audio_device_init();
     if (ef2_audio_status != 0) {
-        ef2_video_clear(220, 40, 48);
+        show_init_failure(ef2_audio_status);
         for (;;)
             ++ef2_boot_counter;
     }
