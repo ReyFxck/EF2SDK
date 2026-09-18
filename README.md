@@ -10,7 +10,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 
 **PoC / pre-alpha.** EF2SDK currently provides:
 
-- an independent EE entry point and linker script with loader-aware argc/argv normalization, clean KExit on main return, an EF2-owned freestanding heap allocator and an opt-in minimal libc compatibility layer;
+- an independent EE entry point and linker script with loader-aware argc/argv normalization, clean KExit on main return, an EF2-owned freestanding heap allocator and an opt-in minimal libc compatibility layer with setjmp/longjmp error recovery;
 - explicit `.bss` initialization in the freestanding startup;
 - a raw EE kernel syscall wrapper for `SetGsCrt`;
 - initial GS privileged-register definitions;

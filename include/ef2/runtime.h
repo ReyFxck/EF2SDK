@@ -28,6 +28,7 @@ char *const *ef2_runtime_argv(void);
 void ef2_runtime_get_args(ef2_runtime_args *args);
 
 EF2_NORETURN void ef2_runtime_exit(ef2_s32 status);
+EF2_NORETURN void ef2_runtime_abort(void);
 
 #ifdef __cplusplus
 }

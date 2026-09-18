@@ -132,6 +132,18 @@ EF2_NORETURN void ef2_runtime_exit(ef2_s32 status)
     }
 }
 
+EF2_NORETURN void ef2_runtime_abort(void)
+{
+    ef2_runtime_exit(-1);
+}
+
+#ifndef EF2_LIBC_NO_STANDARD_ALIASES
+EF2_NORETURN void abort(void)
+{
+    ef2_runtime_abort();
+}
+#endif
+
 EF2_NORETURN void ef2_runtime_run_main(void)
 {
     ef2_s32 status;

@@ -132,3 +132,22 @@ EF2 flags sees the same ABI as libz.
 Allocation and memory operations resolve through EF2SDK's minimal libc layer.
 CI runs an actual host compress/uncompress roundtrip and also links the same
 test against the R5900 `libz.a + libef2.a` with no libc/libgcc defaults.
+
+
+## Nonlocal error recovery
+
+The minimal compatibility runtime provides a standard-style `jmp_buf`,
+`setjmp` macro and `longjmp` function in the opt-in compatibility headers.
+
+The implementation is intentionally GCC-specific: it stores the compiler's
+five-word `__builtin_setjmp` state plus the user-requested return value.
+`__builtin_longjmp` always receives the compiler-required literal value 1,
+while EF2SDK restores the standard C rule that `longjmp(env, 0)` makes
+`setjmp` return 1.
+
+This keeps the implementation architecture-aware without importing newlib
+assembly. Host CI verifies nested-call unwinding and the zero-to-one return
+rule.
+
+The standard `abort()` compatibility symbol is also provided and maps to
+`ef2_runtime_abort()`, which exits through the same EE KExit path.

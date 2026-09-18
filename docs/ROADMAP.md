@@ -96,6 +96,8 @@
 - [x] host-side heap regression tests
 - [x] initial libc strategy: EF2-prefixed core + opt-in standard compatibility headers
 - [x] memory/string primitives and malloc-family standard aliases
+- [x] minimal setjmp/longjmp compatibility for port error recovery
+- [x] abort fallback routed through EF2 runtime exit
 - [ ] formatted I/O / printf-family strategy
 - [ ] C++ runtime strategy
 - [x] initial upstream zlib 1.3.2 in-memory core port
