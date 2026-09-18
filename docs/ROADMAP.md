@@ -72,9 +72,18 @@
 - [ ] validate rumble on real DualShock 1/2 and common clones
 - [x] initial direct-SIO2 Multitap topology and per-slot API
 - [ ] validate Multitap slot switching on real hardware
-- [x] initial memory card RPC access (ROM MCMAN/MCSERV get-info path)
-- [ ] validate memory card get-info/free-space path in NetherSX2 (alpha.45 reached MC init but MCSERV bind failed; alpha.46 adds module/bind diagnostics and classic-first fallback)
-- [ ] memory card file/directory read-write API
+- [x] initial ROM MCMAN/MCSERV compatibility client (kept as fallback/diagnostics)
+- [x] EF2-owned embedded storage RPC service (`ef2storage.irx`)
+- [x] direct native PS2 memory-card geometry discovery over SIO2
+- [ ] native PS2 memory-card authentication + raw page/ECC/bad-block implementation
+- [ ] native PS2 memory-card filesystem read/write implementation
+- [x] MMCE v1 ping/status/card/channel/GameID control
+- [x] MMCE open/close/read/write/lseek filesystem subset
+- [x] MX4SIO SD/MMC initialization + capacity discovery
+- [x] MX4SIO 512-byte sector read/write API (PIO-first)
+- [ ] validate native MC/MMCE/MX4SIO backends on their respective hardware/emulation
+- [ ] shared SIO2 broker for concurrent pad/storage calls from multiple EE threads
+- [ ] unified VFS mount layer over MC/MMCE/MX4SIO
 - [ ] USB mass storage path
 
 ## P4 - Audio

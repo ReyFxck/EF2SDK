@@ -8,6 +8,7 @@
 #include <ef2/memorycard.h>
 #include <ef2/pad.h>
 #include <ef2/sif.h>
+#include <ef2/storage.h>
 #include <ef2/timer.h>
 #include <ef2/video.h>
 
@@ -363,7 +364,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.46 start argc=%d\n",
+        "alpha.47 start argc=%d\n",
         argc);
 
     {
@@ -793,63 +794,52 @@ int main(int argc, char **argv)
     }
 
     {
-        ef2_mc_info mc0 = {0};
-        ef2_mc_info mc1 = {0};
-        ef2_mc_diag mc_diag = {0};
-        int mc_init_result =
-            ef2_mc_init();
-        int mc0_result = mc_init_result;
-        int mc1_result = mc_init_result;
+        int storage_init = ef2_storage_init();
+        int storage_scan = storage_init;
+        ef2_u32 storage_count = 0u;
+        ef2_u32 storage_index;
 
-        (void)ef2_mc_get_diag(&mc_diag);
-
-        (void)ef2_debug_printf(
-            "MC",
-            "modules=%u sio2=%d/%d mcman=%d/%d mcserv=%d/%d bind=%d\n",
-            (ef2_u32)mc_diag.module_set,
-            mc_diag.sio2_load,
-            mc_diag.sio2_start,
-            mc_diag.mcman_load,
-            mc_diag.mcman_start,
-            mc_diag.mcserv_load,
-            mc_diag.mcserv_start,
-            mc_diag.bind_result);
-
-        if (mc_init_result == 0) {
-            mc0_result =
-                ef2_mc_get_info(0, 0, &mc0);
-
-            /*
-             * The first observation of a card commonly returns "changed".
-             * Query once more so the smoke also records the steady-state
-             * result and free-cluster count.
-             */
-            if (mc0_result == -1 ||
-                mc0_result == -2)
-                mc0_result =
-                    ef2_mc_get_info(0, 0, &mc0);
-
-            mc1_result =
-                ef2_mc_get_info(1, 0, &mc1);
-
-            if (mc1_result == -1 ||
-                mc1_result == -2)
-                mc1_result =
-                    ef2_mc_get_info(1, 0, &mc1);
+        if (storage_init == 0) {
+            storage_scan = ef2_storage_scan();
+            if (storage_scan == 0)
+                storage_count = ef2_storage_get_device_count();
         }
 
         (void)ef2_debug_printf(
-            "MC",
-            "init=%d p0=%d type=%d free=%d fmt=%d p1=%d type=%d free=%d fmt=%d\n",
-            mc_init_result,
-            mc0_result,
-            mc0.type,
-            mc0.free_clusters,
-            mc0.formatted,
-            mc1_result,
-            mc1.type,
-            mc1.free_clusters,
-            mc1.formatted);
+            "STORAGE",
+            "init=%d scan=%d devices=%u\n",
+            storage_init,
+            storage_scan,
+            storage_count);
+
+        for (storage_index = 0u;
+             storage_index < storage_count;
+             ++storage_index) {
+            ef2_storage_device_info device = {0};
+            int info_result =
+                ef2_storage_get_device(
+                    storage_index,
+                    &device);
+
+            (void)ef2_debug_printf(
+                "STORAGE",
+                "dev=%u info=%d kind=%u port=%u caps=%x page=%u block=%u pages=%u sector=%u sectors=%u proto=%u product=%u rev=%u card=%u chan=%u\n",
+                storage_index,
+                info_result,
+                (ef2_u32)device.kind,
+                device.physical_port,
+                device.capabilities,
+                device.page_size,
+                device.erase_block_pages,
+                device.page_count,
+                device.sector_size,
+                device.sector_count,
+                device.protocol_version,
+                device.product_id,
+                device.product_revision,
+                device.current_card,
+                device.current_channel);
+        }
     }
 
     {
