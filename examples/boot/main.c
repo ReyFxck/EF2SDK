@@ -6,6 +6,7 @@
 #include <ef2/interrupt.h>
 #include <ef2/kernel.h>
 #include <ef2/pad.h>
+#include <ef2/sif.h>
 #include <ef2/timer.h>
 #include <ef2/video.h>
 
