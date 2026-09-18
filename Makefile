@@ -16,6 +16,7 @@ HOST_PAD_TEST := $(BUILD)/pad-input-test
 HOST_HEAP_TEST := $(BUILD)/heap-test
 HOST_LIBC_TEST := $(BUILD)/libc-test
 HOST_SETJMP_TEST := $(BUILD)/setjmp-test
+HOST_FORMAT_TEST := $(BUILD)/format-test
 HOST_ZLIB_TEST := $(BUILD)/zlib-host-test
 ZLIB_TARGET_DIR := $(BUILD)/ports/zlib-target
 ZLIB_HOST_DIR := $(BUILD)/ports/zlib-host
@@ -45,6 +46,7 @@ LIB_OBJS := \
     $(BUILD)/heap_default.o \
     $(BUILD)/libc_memory.o \
     $(BUILD)/libc_alloc.o \
+    $(BUILD)/libc_format.o \
     $(BUILD)/setjmp.o \
     $(BUILD)/syscall.o \
     $(BUILD)/cache.o \
@@ -86,6 +88,9 @@ $(BUILD)/libc_memory.o: src/ee/runtime/libc_memory.c include/ef2/base.h include/
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/libc_alloc.o: src/ee/runtime/libc_alloc.c include/ef2/base.h include/ef2/heap.h include/ef2/libc.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/libc_format.o: src/ee/runtime/libc_format.c include/ef2/base.h include/ef2/libc.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/setjmp.o: src/ee/runtime/setjmp.c include/ef2/compat/setjmp.h | $(BUILD)
@@ -175,16 +180,22 @@ $(HOST_SETJMP_TEST): tests/setjmp_test.c src/ee/runtime/setjmp.c include/ef2/com
 		-Iinclude/ef2/compat -Iinclude \
 		tests/setjmp_test.c src/ee/runtime/setjmp.c -o $@
 
+$(HOST_FORMAT_TEST): tests/format_test.c src/ee/runtime/libc_format.c include/ef2/libc.h include/ef2/compat/stdio.h | $(BUILD)
+	$(HOSTCC) -std=c11 -O2 -Wall -Wextra -Werror -fno-builtin \
+		-Iinclude/ef2/compat -Iinclude \
+		tests/format_test.c src/ee/runtime/libc_format.c -o $@
+
 $(HOST_ZLIB_TEST): tests/zlib_test.c $(ZLIB_HOST_LIB) | $(BUILD)
 	$(HOSTCC) -std=c11 -O2 -Wall -Wextra -Werror \
 		-I$(ZLIB_HOST_DIR) tests/zlib_test.c $(ZLIB_HOST_LIB) -o $@
 
-host-test: $(HOST_AUDIO_TEST) $(HOST_PAD_TEST) $(HOST_HEAP_TEST) $(HOST_LIBC_TEST) $(HOST_SETJMP_TEST) $(HOST_ZLIB_TEST)
+host-test: $(HOST_AUDIO_TEST) $(HOST_PAD_TEST) $(HOST_HEAP_TEST) $(HOST_LIBC_TEST) $(HOST_SETJMP_TEST) $(HOST_FORMAT_TEST) $(HOST_ZLIB_TEST)
 	$(HOST_AUDIO_TEST)
 	$(HOST_PAD_TEST)
 	$(HOST_HEAP_TEST)
 	$(HOST_LIBC_TEST)
 	$(HOST_SETJMP_TEST)
+	$(HOST_FORMAT_TEST)
 	$(HOST_ZLIB_TEST)
 
 $(ZLIB_TARGET_LIB): ports/zlib/build.sh ports/zlib/ef2_zutil.c | $(BUILD)
@@ -216,7 +227,7 @@ check: $(ELF) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 	@entry=`$(READELF) -h $(ELF) | awk '/Entry point address:/ { print $$4 }'`; \
 	case "$$entry" in 0x100000|0x00100000) ;; *) echo "ERROR: unexpected entry point $$entry"; exit 1 ;; esac
 	@echo "== EF2SDK library symbols =="
-	@for sym in ef2_runtime_get_args ef2_runtime_exit ef2_runtime_abort ef2_heap_init ef2_heap_init_default ef2_malloc ef2_free ef2_calloc ef2_realloc ef2_heap_get_stats ef2_memcpy ef2_memmove ef2_memset ef2_memcmp ef2_strlen ef2_strcmp ef2_video_init ef2_video_set_double_buffering ef2_video_wait_vsync ef2_video_present ef2_video_get_frame_stats ef2_video_draw_rect ef2_video_draw_line ef2_video_get_size ef2_video_upload_rgba32 ef2_video_upload_indexed8 ef2_video_upload_indexed4 ef2_video_pack_indices4 ef2_video_draw_texture ef2_video_draw_texture_region ef2_video_get_texture_vram_free ef2_gif_dma_send_qwords ef2_cache_writeback_invalidate_range ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all ef2_pad_poll_slot ef2_pad_get_slot_count ef2_pad_set_rumble ef2_pad_set_rumble_slot ef2_pad_stop_rumble ef2_pad_is_held ef2_pad_axis_deadzone; do \
+	@for sym in ef2_runtime_get_args ef2_runtime_exit ef2_runtime_abort ef2_heap_init ef2_heap_init_default ef2_malloc ef2_free ef2_calloc ef2_realloc ef2_heap_get_stats ef2_memcpy ef2_memmove ef2_memset ef2_memcmp ef2_strlen ef2_strcmp ef2_vsnprintf ef2_snprintf ef2_video_init ef2_video_set_double_buffering ef2_video_wait_vsync ef2_video_present ef2_video_get_frame_stats ef2_video_draw_rect ef2_video_draw_line ef2_video_get_size ef2_video_upload_rgba32 ef2_video_upload_indexed8 ef2_video_upload_indexed4 ef2_video_pack_indices4 ef2_video_draw_texture ef2_video_draw_texture_region ef2_video_get_texture_vram_free ef2_gif_dma_send_qwords ef2_cache_writeback_invalidate_range ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all ef2_pad_poll_slot ef2_pad_get_slot_count ef2_pad_set_rumble ef2_pad_set_rumble_slot ef2_pad_stop_rumble ef2_pad_is_held ef2_pad_axis_deadzone; do \
 		if ! $(NM) $(LIB) | grep -q " $$sym$$"; then \
 			echo "ERROR: missing library symbol $$sym"; exit 1; \
 		fi; \
