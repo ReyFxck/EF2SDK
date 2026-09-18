@@ -15,8 +15,6 @@ HOST_AUDIO_TEST := $(BUILD)/audio-rate-test
 IOP_AUDIO_DIR := src/iop/audio
 IOP_AUDIO_IRX := $(BUILD)/ef2audio.irx
 IOP_AUDIO_C := $(BUILD)/ef2audio_irx.c
-IOP_AUDIO_DEBUG_H := $(BUILD)/ef2audio_debug.h
-IOP_NM ?= mipsel-none-elf-nm
 
 CFLAGS := -G0 -O2 -Wall -Wextra -Werror \
           -ffreestanding -fno-builtin -fno-stack-protector \
@@ -66,18 +64,12 @@ $(BUILD)/video.o: src/ee/gs/video.c include/ef2/base.h include/ef2/gif.h include
 $(BUILD)/audio.o: src/ee/audio/audio.c include/ef2/audio.h include/ef2/base.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD)/audio_iop.o: src/ee/audio/iop_backend.c include/ef2/audio.h include/ef2/audio_rpc.h include/ef2/sif.h $(IOP_AUDIO_DEBUG_H) | $(BUILD)
-	$(CC) $(CFLAGS) -I$(BUILD) -c $< -o $@
+$(BUILD)/audio_iop.o: src/ee/audio/iop_backend.c include/ef2/audio.h include/ef2/audio_rpc.h include/ef2/sif.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
 
 $(IOP_AUDIO_IRX): $(IOP_AUDIO_DIR)/src/main.c $(IOP_AUDIO_DIR)/src/imports.lst $(IOP_AUDIO_DIR)/src/irx_imports.h $(IOP_AUDIO_DIR)/Makefile | $(BUILD)
 	$(MAKE) -C $(IOP_AUDIO_DIR) clean all
 	cp $(IOP_AUDIO_DIR)/irx/ef2audio.irx $@
-
-$(IOP_AUDIO_DEBUG_H): $(IOP_AUDIO_IRX) | $(BUILD)
-	@printf '%s\n' '#ifndef EF2AUDIO_DEBUG_H' > $@
-	@printf '%s\n' '#define EF2AUDIO_DEBUG_H' >> $@
-	@$(IOP_NM) $(IOP_AUDIO_DIR)/irx/ef2audio.notiopmod.elf | awk '$$3 == "ef2audio_debug_stage" { print "#define EF2AUDIO_DEBUG_STAGE_OFFSET 0x" $$1 "u"; found=1 } END { if (!found) exit 1 }' >> $@
-	@printf '%s\n' '#endif' >> $@
 
 $(IOP_AUDIO_C): $(IOP_AUDIO_IRX) scripts/bin2c.py | $(BUILD)
 	$(PYTHON) scripts/bin2c.py $(IOP_AUDIO_IRX) $@ ef2audio_irx
@@ -119,9 +111,6 @@ check: $(ELF) $(IOP_AUDIO_IRX)
 		fi; \
 	done
 	@test -s $(IOP_AUDIO_IRX)
-	@test -s $(IOP_AUDIO_DEBUG_H)
-	@echo "== IOP debug symbol =="
-	@cat $(IOP_AUDIO_DEBUG_H)
 	@echo "== Disassembly preview =="
 	$(OBJDUMP) -d $(ELF) | head -n 180
 

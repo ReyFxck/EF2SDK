@@ -27,7 +27,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - automatic GitHub Releases for `v*` tags;
 - automatic release notes grouped by PR labels.
 
-The alpha.1 background-only PCRTC experiment remained black in NetherSX2 and has been retired. The alpha.2 framebuffer/GIF path was visually confirmed in NetherSX2 on 2026-09-17 with the expected vivid-blue framebuffer.
+The alpha.1 background-only PCRTC experiment remained black in NetherSX2 and has been retired. The alpha.2 framebuffer/GIF path was visually confirmed in NetherSX2 on 2026-09-17. The embedded EF2Audio path was audibly confirmed in NetherSX2 on 2026-09-18, including the legacy LOADFILE compatibility patch and 32 kHz -> 48 kHz melody stream.
 
 ## Bootstrap policy
 
@@ -35,7 +35,7 @@ EF2SDK does **not** link against PS2SDK in the PoC.
 
 For now, CI borrows the existing R5900 compiler/binutils only as a bootstrap toolchain. The produced ELF is linked with `-nostdlib -nostartfiles -nodefaultlibs` and EF2SDK's own startup/linker files.
 
-CI resolves the current official `ps2dev-ubuntu-latest.tar.gz` release asset, verifies its published SHA-256 digest, caches only the EE toolchain, and places `ee/bin` in `PATH`. PS2SDK headers, startup objects and libraries are not used by the PoC build.
+CI resolves the official ps2dev bootstrap bundle and pins a PS2SDK source revision for IOP build rules/import headers. The EE ELF remains freestanding and does not link PS2SDK startup objects or libraries.
 
 The long-term goal is to reduce external bootstrap dependencies as EF2SDK matures.\n\nAlpha.4 uses the PS2SDK source tree only at **build time** for current IOP IRX rules/import headers, and the resulting `ef2audio.irx` imports the console ROM's `LIBSD` service as a temporary low-level SPU2 bootstrap. The EE ELF still does not link PS2SDK libraries, and EF2Audio does **not** use `audsrv`. Ring buffering, RPC, resampling and stream policy are EF2SDK code. Direct SPU2 ownership is an explicit follow-up target.
 
@@ -60,7 +60,7 @@ build/ef2audio.irx
 
 The current example selects NTSC interlaced field mode, resets the GS and GIF, programs the CRT through the EE kernel syscall, configures `DISPFB2`/`DISPLAY2`, then draws a full-screen sprite into a 32-bit framebuffer using a small packed GIF packet.
 
-A successful boot produces a solid vivid-blue screen. This was confirmed in NetherSX2. The smoke test writes the GIF FIFO directly; GIF DMA remains the next graphics transport milestone.
+A successful current boot reaches a teal-green framebuffer and plays the generated melody. This validates the framebuffer/GIF path, freestanding EE SIFRPC client, embedded IRX loading, EF2Audio RPC/ring buffering and SPU2 streaming in NetherSX2.
 
 ## Releases
 

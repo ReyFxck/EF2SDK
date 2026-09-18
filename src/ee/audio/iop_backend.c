@@ -2,8 +2,6 @@
 #include <ef2/audio_rpc.h>
 #include <ef2/sif.h>
 
-#include "ef2audio_debug.h"
-
 extern const ef2_u8 ef2audio_irx[];
 extern const ef2_u32 ef2audio_irx_size;
 
@@ -11,52 +9,6 @@ static ef2_sif_rpc_client g_audio_client;
 static ef2_audio_rpc_submit g_submit_buffer EF2_ALIGN(64);
 static ef2_audio_rpc_reply g_reply_buffer EF2_ALIGN(64);
 static ef2_s32 g_audio_bound;
-
-static void audio_debug_emit_loader_marker(ef2_s32 stage)
-{
-    const char *path;
-
-    switch (stage) {
-        case -1: path = "rom0:EF2NOMOD"; break;
-        case 1:  path = "rom0:EF2DBG01"; break;
-        case 2:  path = "rom0:EF2DBG02"; break;
-        case 3:  path = "rom0:EF2DBG03"; break;
-        case 4:  path = "rom0:EF2DBG04"; break;
-        case 5:  path = "rom0:EF2DBG05"; break;
-        case 6:  path = "rom0:EF2DBG06"; break;
-        case 7:  path = "rom0:EF2DBG07"; break;
-        case 8:  path = "rom0:EF2DBG08"; break;
-        case 9:  path = "rom0:EF2DBG09"; break;
-        case 10: path = "rom0:EF2DBG10"; break;
-        case 11: path = "rom0:EF2DBG11"; break;
-        case 12: path = "rom0:EF2DBG12"; break;
-        case 13: path = "rom0:EF2DBG13"; break;
-        default: path = "rom0:EF2DBG00"; break;
-    }
-
-    /*
-     * These names intentionally do not exist. NetherSX2 logs LOADFILE path
-     * requests, giving us a reliable textual trace of the last IOP stage even
-     * when Kprintf/stdio output is not surfaced by the emulator.
-     */
-    (void)ef2_iop_load_module(path);
-}
-
-static ef2_s32 audio_debug_read_stage(void)
-{
-    ef2_u32 stage = 0;
-    int result;
-
-    result = ef2_iop_debug_read_module_u32(
-        "ef2audio",
-        EF2AUDIO_DEBUG_STAGE_OFFSET,
-        &stage);
-
-    if (result < 0)
-        return -1;
-
-    return (ef2_s32)stage;
-}
 
 static void audio_zero(void *ptr, ef2_u32 size)
 {
@@ -89,7 +41,6 @@ static int audio_rpc_simple(ef2_s32 function)
 int ef2_audio_device_init(void)
 {
     int result;
-    ef2_s32 libsd_modres = -1;
     ef2_s32 audio_modres = -1;
 
     result = ef2_sif_init();
@@ -101,7 +52,7 @@ int ef2_audio_device_init(void)
      * therefore not fatal; the authoritative test is whether ef2audio.irx can
      * start and remain resident with its libsd import resolved.
      */
-    (void)ef2_iop_load_module_ex("rom0:LIBSD", &libsd_modres);
+    (void)ef2_iop_load_module("rom0:LIBSD");
 
     /*
      * Embedded IRX remains the real EF2SDK path. Android SAF-backed host:
@@ -131,16 +82,6 @@ int ef2_audio_device_init(void)
     }
 
     /*
-     * Emit the last stage through the emulator-visible LOADFILE log. This is
-     * intentionally done before trusting modres, because alpha.10 showed that
-     * a broken return path can otherwise make a zeroed result look valid.
-     */
-    {
-        ef2_s32 debug_stage = audio_debug_read_stage();
-        audio_debug_emit_loader_marker(debug_stage);
-    }
-
-    /*
      * MODULE_RESIDENT_END is 0. Any other module-start result means the IRX
      * was parsed/started but did not remain installed, so binding its SID can
      * never succeed.
@@ -150,13 +91,7 @@ int ef2_audio_device_init(void)
 
     audio_zero(&g_audio_client, sizeof(g_audio_client));
 
-    result = ef2_sif_bind(&g_audio_client, EF2_AUDIO_RPC_SID_PRIMARY);
-    if (result < 0 || g_audio_client.server == (void *)0) {
-        audio_zero(&g_audio_client, sizeof(g_audio_client));
-        result = ef2_sif_bind(
-            &g_audio_client,
-            EF2_AUDIO_RPC_SID_FALLBACK);
-    }
+    result = ef2_sif_bind(&g_audio_client, EF2_AUDIO_RPC_SID);
 
     if (result < 0 || g_audio_client.server == (void *)0)
         return -3000 + ((result < 0) ? result : -9);

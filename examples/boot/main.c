@@ -161,7 +161,7 @@ int main(void)
             submitted_before_start += produced;
         }
 
-        if (!audio_started && submitted_before_start >= 4096u) {
+        if (!audio_started && submitted_before_start >= 2048u) {
             ef2_audio_status = ef2_audio_device_start();
 
             if (ef2_audio_status != 0) {

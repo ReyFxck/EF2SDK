@@ -309,3 +309,25 @@ Alpha.14 explicitly detects an unchanged request pointer and reports the call
 as unsupported. The audio bootstrap then enters the existing EF2 legacy
 LOADFILE patch path and retries the embedded IRX load instead of accepting a
 false success.
+
+
+## Alpha.15: validated cleanup and latency pass
+
+The alpha.14 smoke test was audibly validated in NetherSX2 on 2026-09-18:
+the framebuffer reached teal-green and the generated melody played correctly.
+
+With bring-up complete, alpha.15 removes the temporary EF2DBG/EF2NOMOD
+telemetry, the alternate diagnostic RPC SID and build-time debug-symbol
+plumbing. The production RPC receive buffer is now sized to the actual submit
+packet instead of a 4096-byte scratch allocation.
+
+The SPU2 block geometry remains intentionally unchanged. Comparison against
+the current ps2sdk audsrv implementation confirms a 4096-byte loop buffer
+containing two 2048-byte blocks and 512 stereo frames per refill, matching
+EF2Audio's working layout.
+
+The IOP ring is reduced from 8192 to 4096 stereo frames (about 85 ms at
+48 kHz), and the smoke-test startup prefill is reduced from 4096 to 2048
+frames (about 43 ms). This cuts IOP RAM use and startup latency while retaining
+multiple SPU2 refill blocks of buffering. Underrun/overrun counters remain
+available through the existing stats call.
