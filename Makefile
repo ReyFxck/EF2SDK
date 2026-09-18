@@ -15,6 +15,9 @@ HOST_AUDIO_TEST := $(BUILD)/audio-rate-test
 IOP_AUDIO_DIR := src/iop/audio
 IOP_AUDIO_IRX := $(BUILD)/ef2audio.irx
 IOP_AUDIO_C := $(BUILD)/ef2audio_irx.c
+IOP_PAD_DIR := src/iop/pad
+IOP_PAD_IRX := $(BUILD)/ef2pad.irx
+IOP_PAD_C := $(BUILD)/ef2pad_irx.c
 
 CFLAGS := -G0 -O2 -Wall -Wextra -Werror \
           -ffreestanding -fno-builtin -fno-stack-protector \
@@ -33,7 +36,9 @@ LIB_OBJS := \
     $(BUILD)/video.o \
     $(BUILD)/audio.o \
     $(BUILD)/audio_iop.o \
-    $(BUILD)/ef2audio_irx.o
+    $(BUILD)/ef2audio_irx.o \
+    $(BUILD)/pad_iop.o \
+    $(BUILD)/ef2pad_irx.o
 
 APP_OBJS := \
     $(BUILD)/start.o \
@@ -41,7 +46,7 @@ APP_OBJS := \
 
 .PHONY: all clean check host-test package toolchain-info
 
-all: $(ELF) $(LIB) $(IOP_AUDIO_IRX)
+all: $(ELF) $(LIB) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 
 $(BUILD):
 	mkdir -p $(BUILD)
@@ -67,6 +72,9 @@ $(BUILD)/audio.o: src/ee/audio/audio.c include/ef2/audio.h include/ef2/base.h | 
 $(BUILD)/audio_iop.o: src/ee/audio/iop_backend.c include/ef2/audio.h include/ef2/audio_rpc.h include/ef2/sif.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD)/pad_iop.o: src/ee/input/iop_backend.c include/ef2/pad.h include/ef2/pad_rpc.h include/ef2/sif.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(IOP_AUDIO_IRX): $(IOP_AUDIO_DIR)/src/main.c $(IOP_AUDIO_DIR)/src/imports.lst $(IOP_AUDIO_DIR)/src/irx_imports.h $(IOP_AUDIO_DIR)/Makefile | $(BUILD)
 	$(MAKE) -C $(IOP_AUDIO_DIR) clean all
 	cp $(IOP_AUDIO_DIR)/irx/ef2audio.irx $@
@@ -77,7 +85,17 @@ $(IOP_AUDIO_C): $(IOP_AUDIO_IRX) scripts/bin2c.py | $(BUILD)
 $(BUILD)/ef2audio_irx.o: $(IOP_AUDIO_C) include/ef2/base.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $(IOP_AUDIO_C) -o $@
 
-$(BUILD)/boot.o: examples/boot/main.c include/ef2/audio.h include/ef2/base.h include/ef2/video.h | $(BUILD)
+$(IOP_PAD_IRX): $(IOP_PAD_DIR)/src/main.c $(IOP_PAD_DIR)/src/sio2_direct.c $(IOP_PAD_DIR)/src/sio2_direct.h $(IOP_PAD_DIR)/src/imports.lst $(IOP_PAD_DIR)/src/irx_imports.h $(IOP_PAD_DIR)/Makefile | $(BUILD)
+	$(MAKE) -C $(IOP_PAD_DIR) clean all
+	cp $(IOP_PAD_DIR)/irx/ef2pad.irx $@
+
+$(IOP_PAD_C): $(IOP_PAD_IRX) scripts/bin2c.py | $(BUILD)
+	$(PYTHON) scripts/bin2c.py $(IOP_PAD_IRX) $@ ef2pad_irx
+
+$(BUILD)/ef2pad_irx.o: $(IOP_PAD_C) include/ef2/base.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $(IOP_PAD_C) -o $@
+
+$(BUILD)/boot.o: examples/boot/main.c include/ef2/audio.h include/ef2/base.h include/ef2/pad.h include/ef2/video.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(LIB): $(LIB_OBJS)
@@ -93,7 +111,7 @@ $(HOST_AUDIO_TEST): tests/audio_rate_test.c src/ee/audio/audio.c include/ef2/aud
 host-test: $(HOST_AUDIO_TEST)
 	$(HOST_AUDIO_TEST)
 
-check: $(ELF) $(IOP_AUDIO_IRX)
+check: $(ELF) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 	@echo "== Undefined symbols =="
 	@if $(NM) -u $(ELF) | grep -q .; then \
 		echo "ERROR: unexpected undefined symbols"; \
@@ -105,12 +123,13 @@ check: $(ELF) $(IOP_AUDIO_IRX)
 	@entry=`$(READELF) -h $(ELF) | awk '/Entry point address:/ { print $$4 }'`; \
 	case "$$entry" in 0x100000|0x00100000) ;; *) echo "ERROR: unexpected entry point $$entry"; exit 1 ;; esac
 	@echo "== EF2SDK library symbols =="
-	@for sym in ef2_video_init ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start; do \
+	@for sym in ef2_video_init ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all; do \
 		if ! $(NM) $(LIB) | grep -q " $$sym$$"; then \
 			echo "ERROR: missing library symbol $$sym"; exit 1; \
 		fi; \
 	done
 	@test -s $(IOP_AUDIO_IRX)
+	@test -s $(IOP_PAD_IRX)
 	@echo "== Disassembly preview =="
 	$(OBJDUMP) -d $(ELF) | head -n 180
 
@@ -123,4 +142,6 @@ toolchain-info:
 	@mipsel-none-elf-gcc --version | head -n 1
 
 clean:
-	rm -rf $(BUILD) dist $(IOP_AUDIO_DIR)/obj $(IOP_AUDIO_DIR)/irx
+	rm -rf $(BUILD) dist \
+		$(IOP_AUDIO_DIR)/obj $(IOP_AUDIO_DIR)/irx \
+		$(IOP_PAD_DIR)/obj $(IOP_PAD_DIR)/irx

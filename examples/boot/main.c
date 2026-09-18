@@ -1,5 +1,6 @@
 #include <ef2/audio.h>
 #include <ef2/base.h>
+#include <ef2/pad.h>
 #include <ef2/video.h>
 
 #define EF2_MELODY_RATE 32000u
@@ -103,6 +104,10 @@ int main(void)
     ef2_u32 source_frame = 0;
     ef2_u32 submitted_before_start = 0;
     ef2_s32 audio_started = 0;
+    ef2_s32 audio_paused = 0;
+    ef2_s32 audio_stopped = 0;
+    ef2_u32 audio_volume = 0x3000u;
+    ef2_pad_state pad;
 
     ef2_boot_counter = 1;
     ef2_audio_status = -1;
@@ -123,8 +128,14 @@ int main(void)
     }
 
     if (ef2_audio_device_set_latency_ms(43u) != 0 ||
-        ef2_audio_device_set_volume(0x3000u) != 0) {
+        ef2_audio_device_set_volume(audio_volume) != 0) {
         ef2_video_clear(220, 40, 48);
+        for (;;)
+            ++ef2_boot_counter;
+    }
+
+    if (ef2_pad_init() != 0) {
+        ef2_video_clear(176, 48, 208);
         for (;;)
             ++ef2_boot_counter;
     }
@@ -142,7 +153,65 @@ int main(void)
 
     for (;;) {
         ef2_u32 consumed = 0;
-        ef2_u32 produced;
+        ef2_u32 produced = 0;
+
+        if (ef2_pad_poll(0, &pad) == 0 && pad.connected) {
+            if ((pad.pressed & EF2_PAD_CROSS) != 0u) {
+                if (audio_paused) {
+                    if (ef2_audio_device_resume() == 0) {
+                        audio_paused = 0;
+                        ef2_video_clear(24, 176, 120);
+                    }
+                } else if (!audio_stopped) {
+                    if (ef2_audio_device_pause() == 0) {
+                        audio_paused = 1;
+                        ef2_video_clear(32, 96, 224);
+                    }
+                }
+            }
+
+            if ((pad.pressed & EF2_PAD_START) != 0u) {
+                if (audio_stopped) {
+                    if (ef2_audio_device_start() == 0) {
+                        audio_stopped = 0;
+                        audio_paused = 0;
+                        ef2_video_clear(24, 176, 120);
+                    }
+                } else {
+                    if (ef2_audio_device_stop() == 0) {
+                        audio_stopped = 1;
+                        audio_paused = 0;
+                        ef2_video_clear(112, 40, 48);
+                    }
+                }
+            }
+
+            if ((pad.pressed & EF2_PAD_SQUARE) != 0u)
+                (void)ef2_audio_device_flush();
+
+            if ((pad.pressed & EF2_PAD_UP) != 0u) {
+                if (audio_volume <= EF2_AUDIO_VOLUME_MAX - 0x0400u)
+                    audio_volume += 0x0400u;
+                else
+                    audio_volume = EF2_AUDIO_VOLUME_MAX;
+
+                (void)ef2_audio_device_set_volume(audio_volume);
+            }
+
+            if ((pad.pressed & EF2_PAD_DOWN) != 0u) {
+                if (audio_volume >= 0x0400u)
+                    audio_volume -= 0x0400u;
+                else
+                    audio_volume = 0;
+
+                (void)ef2_audio_device_set_volume(audio_volume);
+            }
+        }
+
+        if (audio_paused || audio_stopped) {
+            ++ef2_boot_counter;
+            continue;
+        }
 
         generate_melody_window(source_frame);
 

@@ -24,6 +24,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - an audible generated 32 kHz -> 48 kHz melody smoke test;
 - EF2Audio runtime volume, pause/resume, stop, flush, stats and configurable queue latency;
 - direct EF2-owned SPU2/DMA streaming without a runtime LIBSD dependency;
+- an initial EF2Pad controller layer with its own SIO2 transport, timeouts and reconnect handling;
 - CI builds for every push and pull request;
 - automatic packaged artifacts;
 - automatic GitHub Releases for `v*` tags;
@@ -85,8 +86,10 @@ src/ee/runtime/      EE startup/runtime code
 src/ee/kernel/       Raw EE kernel interface
 src/ee/gs/           GS/video implementation
 src/ee/audio/        Rate conversion, mixer and IOP backend
+src/ee/input/        EF2Pad EE API/backend
 src/ee/sif/          Minimal SIFCMD/RPC client
 src/iop/audio/       EF2Audio IOP streaming service
+src/iop/pad/         EF2Pad SIO2 controller service
 ld/                  EF2SDK linker scripts
 examples/            Hardware/emulator smoke tests
 docs/                Architecture and roadmap

@@ -43,7 +43,11 @@
 
 - [x] minimal EE SIFCMD/RPC client base
 - [x] in-memory IOP module loading
-- [ ] controller API
+- [x] initial controller API and private EF2Pad RPC protocol
+- [x] direct SIO2 polling backend with timeout/reconnect handling
+- [ ] validate EF2Pad on real fat/slim PS2 hardware
+- [ ] rumble/actuator support
+- [ ] multitap support
 - [ ] memory card access
 - [ ] USB mass storage path
 
@@ -58,11 +62,11 @@
 - [x] autonomous IOP PCM streaming ring buffer
 - [x] SPU2 block-transfer bootstrap through ROM LIBSD
 - [x] embedded 32 kHz -> 48 kHz audible melody smoke test
-- [ ] direct SPU2 backend replacing the temporary LIBSD dependency
+- [x] direct SPU2 backend replacing the temporary LIBSD dependency
 - [ ] per-stream and per-bus mixer
 - [ ] cubic resampler
 - [ ] band-limited/sinc resampler
-- [ ] underrun/overrun and latency diagnostics
+- [x] underrun/overrun and latency diagnostics
 - [ ] hardware latency tests
 
 ## P5 - Runtime and ports
