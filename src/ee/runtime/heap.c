@@ -4,7 +4,11 @@
 #define EF2_HEAP_MAGIC_ALLOC 0xE2A110C1u
 #define EF2_HEAP_MAGIC_FREE  0xE2F4EE01u
 
+#if defined(__mips__)
+typedef ef2_u32 ef2_heap_uptr;
+#else
 typedef __UINTPTR_TYPE__ ef2_heap_uptr;
+#endif
 
 typedef struct ef2_heap_block {
     ef2_u32 size;
@@ -34,6 +38,29 @@ static ef2_heap_uptr align_ptr_down(ef2_heap_uptr value)
 {
     return value &
            ~((ef2_heap_uptr)EF2_HEAP_ALIGNMENT - (ef2_heap_uptr)1u);
+}
+
+static ef2_u32 multiply_u32(
+    ef2_u32 left,
+    ef2_u32 right)
+{
+    ef2_u32 result = 0;
+
+    /*
+     * Keep the freestanding EE object independent from libgcc helpers.
+     * The R5900 bootstrap compiler may otherwise lower some multiplies
+     * through __muldi3 depending on ABI/type promotion choices.
+     */
+    while (right != 0u) {
+        if ((right & 1u) != 0u)
+            result += left;
+
+        right >>= 1;
+        if (right != 0u)
+            left <<= 1;
+    }
+
+    return result;
 }
 
 static ef2_u32 header_size(void)
@@ -188,7 +215,7 @@ void ef2_free(void *ptr)
         return;
 
     if (((ef2_heap_uptr)ptr &
-         ((ef2_heap_uptr)EF2_HEAP_ALIGNMENT - (ef2_heap_uptr)1u)) != 0ul)
+         ((ef2_heap_uptr)EF2_HEAP_ALIGNMENT - (ef2_heap_uptr)1u)) != (ef2_heap_uptr)0u)
         return;
 
     block = payload_block(ptr);
@@ -223,7 +250,7 @@ void *ef2_calloc(ef2_u32 count, ef2_u32 size)
     if (count > 0xFFFFFFFFu / size)
         return (void *)0;
 
-    total = count * size;
+    total = multiply_u32(count, size);
     ptr = (unsigned char *)ef2_malloc(total);
 
     if (ptr == (unsigned char *)0)
@@ -254,7 +281,7 @@ void *ef2_realloc(void *ptr, ef2_u32 size)
 
     if (!g_heap_ready ||
         ((ef2_heap_uptr)ptr &
-         ((ef2_heap_uptr)EF2_HEAP_ALIGNMENT - (ef2_heap_uptr)1u)) != 0ul)
+         ((ef2_heap_uptr)EF2_HEAP_ALIGNMENT - (ef2_heap_uptr)1u)) != (ef2_heap_uptr)0u)
         return (void *)0;
 
     block = payload_block(ptr);
