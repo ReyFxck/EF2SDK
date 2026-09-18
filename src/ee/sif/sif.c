@@ -1200,10 +1200,21 @@ int ef2_iop_exec_module_buffer_ex(
         &g_load_buffer_arg,
         8);
 
+    /*
+     * Legacy LOADFILE versions simply have no dispatch entry for function 6.
+     * SIFRPC still completes the call, but no reply payload is written back.
+     * Since p.ptr is also the first result word, an untouched input buffer
+     * used to look like a successful positive module id, while q.arg_len == 0
+     * looked exactly like MODULE_RESIDENT_END. Detect that false-success case
+     * by checking whether the request pointer survived unchanged.
+     */
+    if (result >= 0 && g_load_buffer_arg.p.ptr == iop_address)
+        result = -6;
+
     ef2_iop_free(iop_address);
 
     if (result < 0)
-        return -5;
+        return result == -6 ? -6 : -5;
 
     if (module_result != (ef2_s32 *)0)
         *module_result = g_load_buffer_arg.q.modres;

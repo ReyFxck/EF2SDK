@@ -291,3 +291,21 @@ The emulator log marker now has one additional meaning:
 
 This path is deliberately independent of every subsystem currently under
 investigation.
+
+
+## Alpha.14: reject false-success LoadModuleBuffer calls
+
+Alpha.13's `EF2NOMOD` marker proved that the embedded IRX was not present in
+the resident IOP module list after the supposed successful module-buffer load.
+
+The cause was a legacy LOADFILE compatibility edge case. Older LOADFILE
+services do not dispatch function 6 (`LoadModuleBuffer`). The SIFRPC request
+can still complete without an output payload. EF2SDK previously reused the
+same input/output structure, so the untouched request pointer was interpreted
+as a positive module id and the zero argument length was interpreted as
+`MODULE_RESIDENT_END`.
+
+Alpha.14 explicitly detects an unchanged request pointer and reports the call
+as unsupported. The audio bootstrap then enters the existing EF2 legacy
+LOADFILE patch path and retries the embedded IRX load instead of accepting a
+false success.
