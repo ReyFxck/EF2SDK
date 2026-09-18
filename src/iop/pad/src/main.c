@@ -107,7 +107,7 @@ static int transfer_poll(
     ef2_u8 *next_stat70)
 {
     ef2_u8 input[EF2PAD_MAX_PACKET];
-    ef2_sio2_result transfer_result;
+    ef2_sio2_result transfer_result = {0, 0, 0};
     ef2_u32 size;
     ef2_u32 i;
     int result;
@@ -313,8 +313,14 @@ static int poll_port(ef2_u32 port)
 
     if (reply[1] != previous_id ||
         reply_size < packet_size_for_id(reply[1])) {
+        ef2_u8 discovery_reply[EF2PAD_MAX_PACKET];
         ef2_u8 discovered_id = reply[1];
+        ef2_u32 discovery_size = reply_size;
         ef2_u32 full_size = 0;
+        ef2_u32 i;
+
+        for (i = 0; i < EF2PAD_MAX_PACKET; ++i)
+            discovery_reply[i] = reply[i];
 
         result = try_profile(
             port,
@@ -325,8 +331,15 @@ static int poll_port(ef2_u32 port)
             reply,
             &full_size);
 
-        if (result == 0)
+        if (result == 0) {
             reply_size = full_size;
+        } else {
+            for (i = 0; i < EF2PAD_MAX_PACKET; ++i)
+                reply[i] = discovery_reply[i];
+
+            reply_size = discovery_size;
+            state->id = discovered_id;
+        }
     }
 
     state->connected = 1;
