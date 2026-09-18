@@ -70,13 +70,6 @@ int ef2_audio_device_init(void)
         return -1000 + result;
 
     /*
-     * ROM LIBSD may already be resident. A negative module-id result alone is
-     * therefore not fatal; the authoritative test is whether ef2audio.irx can
-     * start and remain resident with its libsd import resolved.
-     */
-    (void)ef2_iop_load_module("rom0:LIBSD");
-
-    /*
      * Embedded IRX remains the real EF2SDK path. Android SAF-backed host:
      * paths are unreliable in some Aether/NetherSX2 builds, so alpha.12
      * diagnoses the embedded path without filesystem assistance.

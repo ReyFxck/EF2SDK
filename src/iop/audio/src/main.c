@@ -1,13 +1,10 @@
 #include "irx_imports.h"
+#include "spu2_direct.h"
 #include <ef2/audio_rpc.h>
 
 #define EF2AUDIO_RING_FRAMES 4096u
 #define EF2AUDIO_BLOCK_FRAMES 512u
-#define EF2AUDIO_BLOCK_DMA_CHANNEL 1
 #define EF2AUDIO_MAX_VOLUME 0x3FFF
-#define EF2AUDIO_SD_CORE_0 0
-#define EF2AUDIO_SD_CORE_1 1
-#define EF2AUDIO_SD_INIT_COLD 0
 #define EF2AUDIO_RPC_INPUT_BYTES \
     ((sizeof(ef2_audio_rpc_submit) + 63u) & ~63u)
 
@@ -28,6 +25,10 @@ static ef2_u32 g_underruns;
 static ef2_u32 g_overruns;
 
 static unsigned char g_spu_buffer[4096] __attribute__((aligned(64)));
+static ef2_s16 g_render_left[EF2AUDIO_BLOCK_FRAMES]
+    __attribute__((aligned(64)));
+static ef2_s16 g_render_right[EF2AUDIO_BLOCK_FRAMES]
+    __attribute__((aligned(64)));
 
 static int g_ring_mutex = -1;
 static int g_space_sema = -1;
@@ -63,23 +64,12 @@ static int create_semaphore(int initial, int max)
 
 static void update_volume(void)
 {
-    int audible = g_started && !g_paused;
-    int volume = audible ? (int)g_volume : 0;
+    unsigned int volume = 0;
 
-    sceSdSetParam(EF2AUDIO_SD_CORE_1 | SD_PARAM_AVOLL, 0x7FFF);
-    sceSdSetParam(EF2AUDIO_SD_CORE_1 | SD_PARAM_AVOLR, 0x7FFF);
-    sceSdSetParam(EF2AUDIO_SD_CORE_0 | SD_PARAM_BVOLL, 0);
-    sceSdSetParam(EF2AUDIO_SD_CORE_0 | SD_PARAM_BVOLR, 0);
-    sceSdSetParam(EF2AUDIO_SD_CORE_1 | SD_PARAM_BVOLL, volume);
-    sceSdSetParam(EF2AUDIO_SD_CORE_1 | SD_PARAM_BVOLR, volume);
-    sceSdSetParam(EF2AUDIO_SD_CORE_0 | SD_PARAM_MVOLL, 0);
-    sceSdSetParam(EF2AUDIO_SD_CORE_0 | SD_PARAM_MVOLR, 0);
-    sceSdSetParam(
-        EF2AUDIO_SD_CORE_1 | SD_PARAM_MVOLL,
-        EF2AUDIO_MAX_VOLUME);
-    sceSdSetParam(
-        EF2AUDIO_SD_CORE_1 | SD_PARAM_MVOLR,
-        EF2AUDIO_MAX_VOLUME);
+    if (g_started && !g_paused)
+        volume = g_volume;
+
+    ef2_spu2_set_volume(volume);
 }
 
 static int transfer_complete(void *arg)
@@ -92,29 +82,7 @@ static int transfer_complete(void *arg)
     return 1;
 }
 
-static void write_spu_frame(
-    unsigned char *block,
-    ef2_u32 index,
-    ef2_s16 left,
-    ef2_s16 right)
-{
-    ef2_s16 *left_half;
-    ef2_s16 *right_half;
-
-    if (index < 256u) {
-        left_half = (ef2_s16 *)(block + 0);
-        right_half = (ef2_s16 *)(block + 512);
-        left_half[index] = left;
-        right_half[index] = right;
-    } else {
-        left_half = (ef2_s16 *)(block + 1024);
-        right_half = (ef2_s16 *)(block + 1536);
-        left_half[index - 256u] = left;
-        right_half[index - 256u] = right;
-    }
-}
-
-static void fill_spu_block(unsigned char *block)
+static void fill_render_block(void)
 {
     ef2_u32 take;
     ef2_u32 i;
@@ -135,13 +103,15 @@ static void fill_spu_block(unsigned char *block)
 
         if (i < take) {
             ef2_u32 position =
-                ((g_read_frame + i) % EF2AUDIO_RING_FRAMES) * 2u;
+                ((g_read_frame + i) %
+                 EF2AUDIO_RING_FRAMES) * 2u;
 
             left = g_ring[position];
             right = g_ring[position + 1u];
         }
 
-        write_spu_frame(block, i, left, right);
+        g_render_left[i] = left;
+        g_render_right[i] = right;
     }
 
     if (take != 0) {
@@ -157,8 +127,22 @@ static void fill_spu_block(unsigned char *block)
 
     if (take != 0)
         SignalSema(g_space_sema);
+}
 
-    FlushDcache();
+static void copy_render_to_spu(unsigned char *block)
+{
+    ef2_s16 *left0 = (ef2_s16 *)(block + 0);
+    ef2_s16 *right0 = (ef2_s16 *)(block + 512);
+    ef2_s16 *left1 = (ef2_s16 *)(block + 1024);
+    ef2_s16 *right1 = (ef2_s16 *)(block + 1536);
+    ef2_u32 i;
+
+    for (i = 0; i < 256u; ++i) {
+        left0[i] = g_render_left[i];
+        right0[i] = g_render_right[i];
+        left1[i] = g_render_left[i + 256u];
+        right1[i] = g_render_right[i + 256u];
+    }
 }
 
 static void play_thread(void *arg)
@@ -166,32 +150,33 @@ static void play_thread(void *arg)
     (void)arg;
 
     for (;;) {
-        ef2_u32 status;
         ef2_u32 active_block;
         ef2_u32 idle_block;
+        int interrupt_state;
 
         WaitSema(g_transfer_sema);
+        fill_render_block();
 
-        status =
-            sceSdBlockTransStatus(EF2AUDIO_BLOCK_DMA_CHANNEL, 0);
-        active_block = (status >> 24) & 1u;
+        CpuSuspendIntr(&interrupt_state);
+
+        active_block = ef2_spu2_active_block();
         idle_block = 1u - active_block;
 
-        fill_spu_block(g_spu_buffer + (idle_block << 11));
+        copy_render_to_spu(
+            g_spu_buffer + (idle_block << 11));
+
+        CpuResumeIntr(interrupt_state);
+        FlushDcache();
     }
 }
 
 static int audio_initialize(void)
 {
     iop_thread_t thread;
-    int sd_init_result;
+    int spu2_result;
 
     if (g_initialized)
         return 0;
-
-    sd_init_result = sceSdInit(EF2AUDIO_SD_INIT_COLD);
-    if (sd_init_result < 0)
-        return -1;
 
     g_ring_mutex = create_semaphore(1, 1);
     g_space_sema = create_semaphore(0, 1);
@@ -200,10 +185,16 @@ static int audio_initialize(void)
     if (g_ring_mutex < 0 ||
         g_space_sema < 0 ||
         g_transfer_sema < 0)
+        return -1;
+
+    spu2_result = ef2_spu2_init(transfer_complete, 0);
+    if (spu2_result < 0)
         return -2;
 
     clear_bytes(g_ring, sizeof(g_ring));
     clear_bytes(g_spu_buffer, sizeof(g_spu_buffer));
+    clear_bytes(g_render_left, sizeof(g_render_left));
+    clear_bytes(g_render_right, sizeof(g_render_right));
 
     g_read_frame = 0;
     g_write_frame = 0;
@@ -212,9 +203,6 @@ static int audio_initialize(void)
     g_overruns = 0;
 
     update_volume();
-    sceSdSetTransCallback(
-        EF2AUDIO_BLOCK_DMA_CHANNEL,
-        (void *)transfer_complete);
 
     thread.attr = TH_C;
     thread.option = 0;
@@ -303,12 +291,9 @@ static int audio_start(void)
     FlushDcache();
     update_volume();
 
-    transfer_result = sceSdBlockTrans(
-        EF2AUDIO_BLOCK_DMA_CHANNEL,
-        SD_TRANS_LOOP,
+    transfer_result = ef2_spu2_start_loop(
         g_spu_buffer,
-        sizeof(g_spu_buffer),
-        0);
+        sizeof(g_spu_buffer));
 
     if (transfer_result < 0) {
         g_started = 0;
@@ -355,12 +340,7 @@ static int audio_stop(void)
         return 0;
     }
 
-    result = sceSdBlockTrans(
-        EF2AUDIO_BLOCK_DMA_CHANNEL,
-        SD_TRANS_STOP,
-        0,
-        0,
-        0);
+    result = ef2_spu2_stop();
 
     if (result < 0)
         return -2;

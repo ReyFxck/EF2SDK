@@ -348,3 +348,26 @@ units from 0 through 0x3fff.
 The stats RPC now also reports the effective latency, current volume and
 started/paused state. The smoke test requests an approximately 43 ms queue and
 uses a 0x3000 output volume, exercising the new control path before playback.
+
+
+## Alpha.17: direct SPU2/DMA backend
+
+EF2Audio no longer loads `rom0:LIBSD` and the IRX no longer imports the
+LIBSD export table. The new low-level backend programs the SPU2 and IOP DMA
+registers directly, owns the SPU2 DMA channel-1 interrupt and alternates the
+4096-byte streaming buffer without a ROM sound-driver dependency.
+
+The implementation was written as an EF2-owned subset and cross-checked
+against the documented register behavior used by ps2sdk's FreeSD/libsd
+implementation. It does not link or embed libsd.
+
+The refill path is also safer for real hardware: 512 frames are first staged
+into separate left/right render buffers. After a DMA completion, interrupts
+are briefly suspended only while the staged PCM is copied into the currently
+idle 2048-byte SPU2 block. This prevents a late refill from racing a DMA block
+swap.
+
+Runtime dependencies of ef2audio are now limited to core IOP services such as
+SIFRPC, thread/semaphore management, interrupt management and loadcore cache
+maintenance. SPU2 initialization, mixer volume, DMA start/stop and the loop
+interrupt are EF2SDK code.

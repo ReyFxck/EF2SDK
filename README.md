@@ -23,6 +23,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - an `ef2audio.irx` service with its own IOP ring buffer and private RPC protocol;
 - an audible generated 32 kHz -> 48 kHz melody smoke test;
 - EF2Audio runtime volume, pause/resume, stop, flush, stats and configurable queue latency;
+- direct EF2-owned SPU2/DMA streaming without a runtime LIBSD dependency;
 - CI builds for every push and pull request;
 - automatic packaged artifacts;
 - automatic GitHub Releases for `v*` tags;
@@ -38,7 +39,7 @@ For now, CI borrows the existing R5900 compiler/binutils only as a bootstrap too
 
 CI resolves the official ps2dev bootstrap bundle and pins a PS2SDK source revision for IOP build rules/import headers. The EE ELF remains freestanding and does not link PS2SDK startup objects or libraries.
 
-The long-term goal is to reduce external bootstrap dependencies as EF2SDK matures.\n\nAlpha.4 uses the PS2SDK source tree only at **build time** for current IOP IRX rules/import headers, and the resulting `ef2audio.irx` imports the console ROM's `LIBSD` service as a temporary low-level SPU2 bootstrap. The EE ELF still does not link PS2SDK libraries, and EF2Audio does **not** use `audsrv`. Ring buffering, RPC, resampling and stream policy are EF2SDK code. Direct SPU2 ownership is an explicit follow-up target.
+The long-term goal is to reduce external bootstrap dependencies as EF2SDK matures.\n\nThe PS2SDK source tree is still used at **build time** for IOP IRX rules/import headers, but EF2Audio no longer imports or loads the console ROM's `LIBSD` service. The IOP service owns its SPU2 register setup, DMA channel and DMA interrupt directly. The EE ELF remains freestanding and does not link PS2SDK libraries, and EF2Audio does not use `audsrv`.
 
 ## Build
 

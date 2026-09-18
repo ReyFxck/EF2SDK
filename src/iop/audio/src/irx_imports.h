@@ -3,7 +3,6 @@
 
 #include <irx.h>
 #include <intrman.h>
-#include <libsd.h>
 #include <loadcore.h>
 #include <sifrpc.h>
 #include <thbase.h>
