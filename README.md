@@ -33,7 +33,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 
 The alpha.24 explicit transport diagnostic confirmed the GIF DMA path remains active with zero FIFO fallbacks in NetherSX2 on 2026-09-18. Alpha.26-alpha.28 then validated cropped UVs, source-over alpha blending, PSMT8/256-color CLUTs and PSMT4/16-color CLUTs in the same emulator. By alpha.28, UV cropping, alpha blending, PSMT8/256-color CLUT and PSMT4/16-color CLUT rendering were also visually confirmed in NetherSX2. The alpha.1 background-only PCRTC experiment remained black in NetherSX2 and has been retired. The alpha.2 framebuffer/GIF path was visually confirmed in NetherSX2 on 2026-09-17. The embedded EF2Audio path was audibly confirmed in NetherSX2 on 2026-09-18, including the legacy LOADFILE compatibility patch and 32 kHz -> 48 kHz melody stream. EF2Pad's direct SIO2 polling, button edges and reconnect-safe RPC path were also confirmed in NetherSX2 on 2026-09-18.
 
-Alpha.35 added the buffer-only integer/string formatting core. Alpha.36 adds sink-backed `ef2_printf`/`ef2_fprintf`, opt-in standard aliases, and an optional bounded-timeout EE SIO debug sink. Filesystem-backed streams remain deferred until the VFS layer exists.
+Alpha.35 added the buffer-only integer/string formatting core. Alpha.36 added sink-backed `ef2_printf`/`ef2_fprintf`, opt-in standard aliases, and a bounded-timeout EE SIO sink. Alpha.37 adds an always-on 8 KiB RAM diagnostic ring, optional SIO mirroring that fails open instead of hanging the app, and structured boot/subsystem milestones. Filesystem-backed streams remain deferred until the VFS layer exists.
 
 ## Bootstrap policy
 

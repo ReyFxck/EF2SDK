@@ -1,5 +1,6 @@
 #include <ef2/audio.h>
 #include <ef2/base.h>
+#include <ef2/debug.h>
 #include <ef2/pad.h>
 #include <ef2/video.h>
 
@@ -328,15 +329,38 @@ int main(int argc, char **argv)
     ef2_boot_counter = 1;
     ef2_audio_status = -1;
 
+    (void)ef2_debug_init(
+        EF2_DEBUG_SIO_DEFAULT_BAUD);
+
+    (void)ef2_debug_printf(
+        "BOOT",
+        "alpha.37 start argc=%d\n",
+        argc);
+
     ef2_video_status = ef2_video_init(&video);
+
+    (void)ef2_debug_printf(
+        "VIDEO",
+        "init=%d\n",
+        ef2_video_status);
     if (ef2_video_status != 0) {
         for (;;)
             ++ef2_boot_counter;
     }
 
-    if (ef2_video_set_double_buffering(1u) != 0) {
-        for (;;)
-            ++ef2_boot_counter;
+    {
+        int double_buffer_result =
+            ef2_video_set_double_buffering(1u);
+
+        (void)ef2_debug_printf(
+            "VIDEO",
+            "double_buffer=%d\n",
+            double_buffer_result);
+
+        if (double_buffer_result != 0) {
+            for (;;)
+                ++ef2_boot_counter;
+        }
     }
 
     (void)ef2_video_clear(32, 96, 224);
@@ -465,6 +489,20 @@ int main(int argc, char **argv)
 
     show_gif_transport_indicator();
 
+    {
+        ef2_video_transport_stats transport;
+
+        if (ef2_video_get_transport_stats(
+                &transport) == 0) {
+            (void)ef2_debug_printf(
+                "GIF",
+                "dma=%u fallbacks=%u vram_free=%u\n",
+                transport.dma_available,
+                transport.dma_fallbacks,
+                ef2_video_get_texture_vram_free());
+        }
+    }
+
     /*
      * Everything above was rendered into the hidden back buffer.
      * Seeing the diagnostic frame therefore validates one VSync-synced
@@ -476,34 +514,76 @@ int main(int argc, char **argv)
     }
 
     ef2_audio_status = ef2_audio_device_init();
+
+    (void)ef2_debug_printf(
+        "AUDIO",
+        "init=%d\n",
+        ef2_audio_status);
+
     if (ef2_audio_status != 0) {
         show_init_failure(ef2_audio_status);
         for (;;)
             ++ef2_boot_counter;
     }
 
-    if (ef2_audio_device_set_latency_ms(43u) != 0 ||
-        ef2_audio_device_set_volume(audio_volume) != 0) {
+    {
+        int latency_result =
+            ef2_audio_device_set_latency_ms(43u);
+        int volume_result =
+            ef2_audio_device_set_volume(
+                audio_volume);
+
+        (void)ef2_debug_printf(
+            "AUDIO",
+            "latency=%d volume=%d level=%u\n",
+            latency_result,
+            volume_result,
+            audio_volume);
+
+        if (latency_result != 0 ||
+            volume_result != 0) {
         show_color_and_present(220, 40, 48);
-        for (;;)
-            ++ef2_boot_counter;
+            for (;;)
+                ++ef2_boot_counter;
+        }
     }
 
-    if (ef2_pad_init() != 0) {
-        show_color_and_present(176, 48, 208);
-        for (;;)
-            ++ef2_boot_counter;
+    {
+        int pad_result = ef2_pad_init();
+
+        (void)ef2_debug_printf(
+            "PAD",
+            "init=%d\n",
+            pad_result);
+
+        if (pad_result != 0) {
+            show_color_and_present(
+                176, 48, 208);
+            for (;;)
+                ++ef2_boot_counter;
+        }
     }
 
-    if (ef2_audio_rate_converter_init(
-            &converter,
-            EF2_MELODY_RATE,
-            48000,
-            2,
-            EF2_AUDIO_RESAMPLE_LINEAR) != 0) {
-        show_color_and_present(220, 40, 48);
-        for (;;)
-            ++ef2_boot_counter;
+    {
+        int converter_result =
+            ef2_audio_rate_converter_init(
+                &converter,
+                EF2_MELODY_RATE,
+                48000,
+                2,
+                EF2_AUDIO_RESAMPLE_LINEAR);
+
+        (void)ef2_debug_printf(
+            "AUDIO",
+            "resampler=%d 32000->48000\n",
+            converter_result);
+
+        if (converter_result != 0) {
+            show_color_and_present(
+                220, 40, 48);
+            for (;;)
+                ++ef2_boot_counter;
+        }
     }
 
     for (;;) {
@@ -528,6 +608,9 @@ int main(int argc, char **argv)
                 if (audio_paused) {
                     if (ef2_audio_device_resume() == 0) {
                         audio_paused = 0;
+                        (void)ef2_debug_printf(
+                            "AUDIO",
+                            "resume\n");
                         show_audio_state(
                             audio_paused,
                             audio_stopped);
@@ -535,6 +618,9 @@ int main(int argc, char **argv)
                 } else if (!audio_stopped) {
                     if (ef2_audio_device_pause() == 0) {
                         audio_paused = 1;
+                        (void)ef2_debug_printf(
+                            "AUDIO",
+                            "pause\n");
                         show_audio_state(
                             audio_paused,
                             audio_stopped);
@@ -549,6 +635,9 @@ int main(int argc, char **argv)
                     if (ef2_audio_device_start() == 0) {
                         audio_stopped = 0;
                         audio_paused = 0;
+                        (void)ef2_debug_printf(
+                            "AUDIO",
+                            "start\n");
                         show_audio_state(
                             audio_paused,
                             audio_stopped);
@@ -557,6 +646,9 @@ int main(int argc, char **argv)
                     if (ef2_audio_device_stop() == 0) {
                         audio_stopped = 1;
                         audio_paused = 0;
+                        (void)ef2_debug_printf(
+                            "AUDIO",
+                            "stop\n");
                         show_audio_state(
                             audio_paused,
                             audio_stopped);
@@ -682,6 +774,22 @@ int main(int argc, char **argv)
             }
 
             audio_started = 1;
+
+            {
+                ef2_audio_device_stats stats;
+
+                if (ef2_audio_device_get_stats(
+                        &stats) == 0) {
+                    (void)ef2_debug_printf(
+                        "AUDIO",
+                        "stream started queued=%u capacity=%u latency=%u underruns=%u\n",
+                        stats.queued_frames,
+                        stats.capacity_frames,
+                        stats.latency_ms,
+                        stats.underruns);
+                }
+            }
+
             show_audio_state(
                 audio_paused,
                 audio_stopped);

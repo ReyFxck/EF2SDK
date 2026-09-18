@@ -18,7 +18,7 @@
 #define EF2_SIO_TX_BUSY_MASK 0xF000u
 #define EF2_SIO_TX_BUSY      0x8000u
 
-#define EF2_SIO_TX_TIMEOUT 0x01000000u
+#define EF2_SIO_TX_TIMEOUT 0x00100000u
 
 static ef2_u8 g_last_output;
 

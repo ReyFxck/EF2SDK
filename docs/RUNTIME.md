@@ -36,3 +36,27 @@ than hanging the application.
 
 This is a debug transport, not the future filesystem stdio implementation.
 When VFS lands, file-backed FILE streams can be layered on the same formatter.
+
+
+## Alpha.37 always-on diagnostic log
+
+Alpha.37 turns the formatting/SIO pieces into a usable diagnostic path.
+
+`ef2_debug_init()` installs a tee sink for stdout/stderr. Every byte is first
+stored in an 8 KiB circular RAM log. SIO is only an optional mirror: if the
+serial transmitter times out, the serial side is disabled and the application
+continues logging to RAM.
+
+This avoids the traditional failure mode where debug output itself hangs the
+program because no serial receiver/debugger is present.
+
+`ef2_debug_printf(tag, ...)` emits structured prefixes such as
+`[EF2][VIDEO]`, `[EF2][AUDIO]` and `[EF2][PAD]`.
+
+`ef2_debug_copy_recent()` copies the newest retained bytes for a future crash
+screen, file dump or network transport. `ef2_debug_get_stats()` reports ring
+usage, total bytes, serial status and serial failures.
+
+The boot smoke test now records subsystem milestones, video DMA/fallback state,
+remaining texture VRAM, audio initialization/configuration, pad initialization,
+resampler setup and audio start/pause/resume/stop events.
