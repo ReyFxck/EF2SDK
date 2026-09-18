@@ -2,6 +2,7 @@ IOP_BIN = ef2pad.irx
 
 IOP_IMPORT_INCS += \
     system/intrman \
+    system/loadcore \
     system/sifcmd \
     system/threadman
 
