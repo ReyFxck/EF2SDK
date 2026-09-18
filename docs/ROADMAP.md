@@ -41,7 +41,8 @@
 - [x] bounded GS VSINT/VSync wait helper
 - [x] initial VSync-synchronized double buffering
 - [x] configurable public framebuffer formats/layouts (RGBA32/RGB16 + integer-scaled dimensions)
-- [ ] validate RGB16 framebuffer and a non-native layout in NetherSX2
+- [x] validate RGB16 framebuffer in NetherSX2 (2026-09-18)
+- [ ] validate non-native scaled framebuffer layout in NetherSX2
 - [x] initial GIF DMA normal-mode path with FIFO fallback
 - [x] validate GIF DMA transport in NetherSX2 (2026-09-18)
 - [ ] validate GIF DMA transport on real hardware

@@ -260,3 +260,30 @@ The Alpha.43 smoke selects RGB16 with region-native dimensions so the complete
 existing primitive, RGBA32 texture, PSMT8, PSMT4, alpha, GIF DMA and crash
 diagnostics exercise the alternate framebuffer format without changing their
 screen positions.
+
+
+## Alpha.43 RGB16 validation
+
+The native-layout RGB16 smoke was visually validated in NetherSX2 on
+2026-09-18. The NTSC run resolved a 640x448 framebuffer with format 1 /
+PSMCT16 (PSM 2), reserved 573440 bytes per framebuffer and placed the texture
+heap at byte 1146880. The established primitive, RGBA32 texture, PSMT8,
+PSMT4, crop/alpha and green GIF DMA diagnostics remained visible, and the
+run continued through audio, pad and the deliberate crash screen.
+
+## Alpha.44 non-native scaled-layout smoke
+
+Alpha.44 keeps the validated RGB16 framebuffer format but changes the smoke
+layout to half the native vertical resolution while preserving the 640-pixel
+width. Before video initialization the smoke reads the ROMVER-derived
+standard and chooses 640x224 for NTSC or 640x256 for PAL.
+
+Both layouts use GS vertical magnification 2x to fill the same analog TV
+output. This isolates the non-native layout path from horizontal-coordinate
+changes: all established drawing diagnostics keep their existing X positions
+while the framebuffer page geometry, DISPLAY MAGV programming, double
+buffering and crash renderer operate on the smaller logical height.
+
+For PSMCT16 both half-height layouts reserve 327680 bytes per framebuffer
+(10 GS pages across by 4 pages high), so the texture heap begins at byte
+655360.

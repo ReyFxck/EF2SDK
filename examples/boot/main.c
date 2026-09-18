@@ -327,7 +327,7 @@ static void show_init_failure(ef2_s32 status)
 
 int main(int argc, char **argv)
 {
-    const ef2_video_config video = {
+    ef2_video_config video = {
         .standard = EF2_VIDEO_AUTO,
         .interlaced = 1,
         .field_mode = EF2_VIDEO_FIELD,
@@ -362,7 +362,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.43 start argc=%d\n",
+        "alpha.44 start argc=%d\n",
         argc);
 
     {
@@ -500,6 +500,18 @@ int main(int argc, char **argv)
             for (;;)
                 ++ef2_boot_counter;
         }
+    }
+
+    {
+        ef2_video_standard smoke_standard =
+            EF2_VIDEO_NTSC;
+
+        if (ef2_video_detect_standard(
+                &smoke_standard) == 0 &&
+            smoke_standard == EF2_VIDEO_PAL)
+            video.framebuffer_height = 256u;
+        else
+            video.framebuffer_height = 224u;
     }
 
     ef2_video_status = ef2_video_init(&video);
