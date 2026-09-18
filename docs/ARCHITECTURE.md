@@ -88,3 +88,26 @@ realloc growth when the following block is free. It intentionally exposes
 The core allocator can also be initialized over an arbitrary caller-owned
 buffer, which lets CI regression-test allocation/coalescing behavior on the
 host without emulating EE kernel services.
+
+
+## Minimal libc compatibility layer
+
+EF2SDK keeps its native API namespaced, but ports often expect standard C
+symbols. The first libc layer therefore uses two levels:
+
+1. `<ef2/libc.h>` exposes EF2-owned memory/string primitives;
+2. `include/ef2/compat/` contains opt-in `string.h`, `stdlib.h` and
+   `stddef.h` compatibility headers for third-party builds.
+
+The static library also exports standard `malloc/free/calloc/realloc` and
+basic string/memory symbols. Because `libef2.a` is an archive, those objects
+are pulled only when an application or port has unresolved references to
+them. Existing EF2 code is not forced through the compatibility surface.
+
+Third-party builds can opt in with:
+
+`-I/path/to/EF2SDK/include/ef2/compat -I/path/to/EF2SDK/include`
+
+The host CI compiles the memory/string implementation with standard aliases
+disabled so the test executable cannot accidentally replace the host C
+runtime's allocator/string functions.

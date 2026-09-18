@@ -10,7 +10,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 
 **PoC / pre-alpha.** EF2SDK currently provides:
 
-- an independent EE entry point and linker script with loader-aware argc/argv normalization, clean KExit on main return and an EF2-owned freestanding heap allocator;
+- an independent EE entry point and linker script with loader-aware argc/argv normalization, clean KExit on main return, an EF2-owned freestanding heap allocator and an opt-in minimal libc compatibility layer;
 - explicit `.bss` initialization in the freestanding startup;
 - a raw EE kernel syscall wrapper for `SetGsCrt`;
 - initial GS privileged-register definitions;
@@ -51,6 +51,7 @@ With the PS2 EE cross-toolchain in `PATH`:
 ```sh
 make
 make check
+make host-test
 ```
 
 The build produces:

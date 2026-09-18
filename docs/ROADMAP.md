@@ -94,7 +94,9 @@
 - [x] initial freestanding 16-byte-aligned heap allocator
 - [x] malloc/free/calloc/realloc equivalents with coalescing
 - [x] host-side heap regression tests
-- [ ] libc strategy
+- [x] initial libc strategy: EF2-prefixed core + opt-in standard compatibility headers
+- [x] memory/string primitives and malloc-family standard aliases
+- [ ] formatted I/O / printf-family strategy
 - [ ] C++ runtime strategy
 - [ ] zlib
 - [ ] libpng

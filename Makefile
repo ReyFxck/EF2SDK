@@ -14,6 +14,7 @@ LIB := $(BUILD)/libef2.a
 HOST_AUDIO_TEST := $(BUILD)/audio-rate-test
 HOST_PAD_TEST := $(BUILD)/pad-input-test
 HOST_HEAP_TEST := $(BUILD)/heap-test
+HOST_LIBC_TEST := $(BUILD)/libc-test
 IOP_AUDIO_DIR := src/iop/audio
 IOP_AUDIO_IRX := $(BUILD)/ef2audio.irx
 IOP_AUDIO_C := $(BUILD)/ef2audio_irx.c
@@ -35,6 +36,8 @@ LIB_OBJS := \
     $(BUILD)/runtime.o \
     $(BUILD)/heap.o \
     $(BUILD)/heap_default.o \
+    $(BUILD)/libc_memory.o \
+    $(BUILD)/libc_alloc.o \
     $(BUILD)/syscall.o \
     $(BUILD)/cache.o \
     $(BUILD)/sif.o \
@@ -69,6 +72,12 @@ $(BUILD)/heap.o: src/ee/runtime/heap.c include/ef2/base.h include/ef2/heap.h | $
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/heap_default.o: src/ee/runtime/heap_default.c include/ef2/base.h include/ef2/heap.h include/ef2/kernel.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/libc_memory.o: src/ee/runtime/libc_memory.c include/ef2/base.h include/ef2/libc.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/libc_alloc.o: src/ee/runtime/libc_alloc.c include/ef2/base.h include/ef2/heap.h include/ef2/libc.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/syscall.o: src/ee/kernel/syscall.S | $(BUILD)
@@ -142,10 +151,16 @@ $(HOST_HEAP_TEST): tests/heap_test.c src/ee/runtime/heap.c include/ef2/heap.h in
 	$(HOSTCC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude \
 		tests/heap_test.c src/ee/runtime/heap.c -o $@
 
-host-test: $(HOST_AUDIO_TEST) $(HOST_PAD_TEST) $(HOST_HEAP_TEST)
+$(HOST_LIBC_TEST): tests/libc_test.c src/ee/runtime/libc_memory.c include/ef2/libc.h include/ef2/base.h | $(BUILD)
+	$(HOSTCC) -std=c11 -O2 -Wall -Wextra -Werror -fno-builtin \
+		-DEF2_LIBC_NO_STANDARD_ALIASES -Iinclude \
+		tests/libc_test.c src/ee/runtime/libc_memory.c -o $@
+
+host-test: $(HOST_AUDIO_TEST) $(HOST_PAD_TEST) $(HOST_HEAP_TEST) $(HOST_LIBC_TEST)
 	$(HOST_AUDIO_TEST)
 	$(HOST_PAD_TEST)
 	$(HOST_HEAP_TEST)
+	$(HOST_LIBC_TEST)
 
 check: $(ELF) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 	@echo "== Undefined symbols =="
@@ -159,7 +174,7 @@ check: $(ELF) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 	@entry=`$(READELF) -h $(ELF) | awk '/Entry point address:/ { print $$4 }'`; \
 	case "$$entry" in 0x100000|0x00100000) ;; *) echo "ERROR: unexpected entry point $$entry"; exit 1 ;; esac
 	@echo "== EF2SDK library symbols =="
-	@for sym in ef2_runtime_get_args ef2_runtime_exit ef2_heap_init ef2_heap_init_default ef2_malloc ef2_free ef2_calloc ef2_realloc ef2_heap_get_stats ef2_video_init ef2_video_set_double_buffering ef2_video_wait_vsync ef2_video_present ef2_video_get_frame_stats ef2_video_draw_rect ef2_video_draw_line ef2_video_get_size ef2_video_upload_rgba32 ef2_video_upload_indexed8 ef2_video_upload_indexed4 ef2_video_pack_indices4 ef2_video_draw_texture ef2_video_draw_texture_region ef2_video_get_texture_vram_free ef2_gif_dma_send_qwords ef2_cache_writeback_invalidate_range ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all ef2_pad_poll_slot ef2_pad_get_slot_count ef2_pad_set_rumble ef2_pad_set_rumble_slot ef2_pad_stop_rumble ef2_pad_is_held ef2_pad_axis_deadzone; do \
+	@for sym in ef2_runtime_get_args ef2_runtime_exit ef2_heap_init ef2_heap_init_default ef2_malloc ef2_free ef2_calloc ef2_realloc ef2_heap_get_stats ef2_memcpy ef2_memmove ef2_memset ef2_memcmp ef2_strlen ef2_strcmp ef2_video_init ef2_video_set_double_buffering ef2_video_wait_vsync ef2_video_present ef2_video_get_frame_stats ef2_video_draw_rect ef2_video_draw_line ef2_video_get_size ef2_video_upload_rgba32 ef2_video_upload_indexed8 ef2_video_upload_indexed4 ef2_video_pack_indices4 ef2_video_draw_texture ef2_video_draw_texture_region ef2_video_get_texture_vram_free ef2_gif_dma_send_qwords ef2_cache_writeback_invalidate_range ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all ef2_pad_poll_slot ef2_pad_get_slot_count ef2_pad_set_rumble ef2_pad_set_rumble_slot ef2_pad_stop_rumble ef2_pad_is_held ef2_pad_axis_deadzone; do \
 		if ! $(NM) $(LIB) | grep -q " $$sym$$"; then \
 			echo "ERROR: missing library symbol $$sym"; exit 1; \
 		fi; \
