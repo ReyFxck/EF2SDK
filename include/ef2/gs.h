@@ -29,6 +29,7 @@
 #define EF2_GS_ADDR_PRMODECONT 0x1Au
 #define EF2_GS_ADDR_TEXFLUSH   0x3Fu
 #define EF2_GS_ADDR_SCISSOR_1  0x40u
+#define EF2_GS_ADDR_ALPHA_1    0x42u
 #define EF2_GS_ADDR_TEST_1     0x47u
 #define EF2_GS_ADDR_FRAME_1    0x4Cu
 #define EF2_GS_ADDR_BITBLTBUF  0x50u
@@ -173,6 +174,20 @@ static inline ef2_u64 ef2_gs_pack_tex0(
            ((ef2_u64)(th & 0x0Fu) << 30) |
            ((ef2_u64)(tcc & 1u) << 34) |
            ((ef2_u64)(tfx & 3u) << 35);
+}
+
+static inline ef2_u64 ef2_gs_pack_alpha(
+    ef2_u8 a,
+    ef2_u8 b,
+    ef2_u8 c,
+    ef2_u8 d,
+    ef2_u8 fix)
+{
+    return ((ef2_u64)(a & 3u) << 0) |
+           ((ef2_u64)(b & 3u) << 2) |
+           ((ef2_u64)(c & 3u) << 4) |
+           ((ef2_u64)(d & 3u) << 6) |
+           ((ef2_u64)fix << 32);
 }
 
 static inline ef2_u64 ef2_gs_pack_bitbltbuf(

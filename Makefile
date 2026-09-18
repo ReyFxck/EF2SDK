@@ -141,7 +141,7 @@ check: $(ELF) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 	@entry=`$(READELF) -h $(ELF) | awk '/Entry point address:/ { print $$4 }'`; \
 	case "$$entry" in 0x100000|0x00100000) ;; *) echo "ERROR: unexpected entry point $$entry"; exit 1 ;; esac
 	@echo "== EF2SDK library symbols =="
-	@for sym in ef2_video_init ef2_video_draw_rect ef2_video_draw_line ef2_video_get_size ef2_video_upload_rgba32 ef2_video_draw_texture ef2_video_get_texture_vram_free ef2_gif_dma_send_qwords ef2_cache_writeback_invalidate_range ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all ef2_pad_poll_slot ef2_pad_get_slot_count ef2_pad_set_rumble ef2_pad_set_rumble_slot ef2_pad_stop_rumble ef2_pad_is_held ef2_pad_axis_deadzone; do \
+	@for sym in ef2_video_init ef2_video_draw_rect ef2_video_draw_line ef2_video_get_size ef2_video_upload_rgba32 ef2_video_draw_texture ef2_video_draw_texture_region ef2_video_get_texture_vram_free ef2_gif_dma_send_qwords ef2_cache_writeback_invalidate_range ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all ef2_pad_poll_slot ef2_pad_get_slot_count ef2_pad_set_rumble ef2_pad_set_rumble_slot ef2_pad_stop_rumble ef2_pad_is_held ef2_pad_axis_deadzone; do \
 		if ! $(NM) $(LIB) | grep -q " $$sym$$"; then \
 			echo "ERROR: missing library symbol $$sym"; exit 1; \
 		fi; \

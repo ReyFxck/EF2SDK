@@ -73,3 +73,22 @@ rendering the primitive while ignoring texture enable.
 Alpha.25 explicitly writes PRMODECONT.AC=1 before the textured PRIM so TME/FST
 and the other primitive attributes are sourced from PRIM. This removes the
 post-reset ambiguity without relying on BIOS or previous GS state.
+
+
+## Alpha.26 regions and blending
+
+Alpha.26 adds `ef2_video_draw_texture_region()`, which selects an arbitrary
+source rectangle with UV coordinates and maps it to an arbitrary destination
+rectangle.
+
+The same call accepts RGBA modulation. GS MODULATE mode treats component
+0x80 as unity, so callers can tint a texture or scale its alpha without
+rewriting texture memory.
+
+Optional alpha blending uses the standard source-over equation:
+
+`(source - destination) * source_alpha / 128 + destination`.
+
+The alpha.26 smoke test draws the center 16x16 region of the validated
+checkerboard over a yellow rectangle at approximately 50% opacity. The
+original full-texture draw remains in place as a baseline.

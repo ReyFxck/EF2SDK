@@ -465,16 +465,27 @@ int ef2_video_upload_rgba32(
     return 0;
 }
 
-int ef2_video_draw_texture(
+int ef2_video_draw_texture_region(
     const ef2_video_texture *texture,
+    ef2_u16 source_x,
+    ef2_u16 source_y,
+    ef2_u16 source_width,
+    ef2_u16 source_height,
     ef2_s32 x,
     ef2_s32 y,
     ef2_s32 width,
-    ef2_s32 height)
+    ef2_s32 height,
+    ef2_u8 r,
+    ef2_u8 g,
+    ef2_u8 b,
+    ef2_u8 a,
+    ef2_u8 blend)
 {
-    ef2_gif_qword packet[14] EF2_ALIGN(16);
+    ef2_gif_qword packet[15] EF2_ALIGN(16);
     ef2_s32 right;
     ef2_s32 bottom;
+    ef2_u16 u0;
+    ef2_u16 v0;
     ef2_u16 u1;
     ef2_u16 v1;
 
@@ -482,22 +493,39 @@ int ef2_video_draw_texture(
             (const ef2_video_texture *)0 ||
         !texture->valid ||
         texture->psm != EF2_GS_PSMCT32 ||
+        source_width == 0u ||
+        source_height == 0u ||
         width <= 0 || height <= 0)
         return -1;
+
+    if ((ef2_u32)source_x +
+            (ef2_u32)source_width >
+            texture->width ||
+        (ef2_u32)source_y +
+            (ef2_u32)source_height >
+            texture->height)
+        return -2;
 
     if (x < 0 || y < 0 ||
         x + width > (ef2_s32)ef2_video_width ||
         y + height > (ef2_s32)ef2_video_height)
-        return -2;
+        return -3;
 
     right = x + width;
     bottom = y + height;
-    u1 = (ef2_u16)(texture->width << 4);
-    v1 = (ef2_u16)(texture->height << 4);
+
+    u0 = (ef2_u16)(source_x << 4);
+    v0 = (ef2_u16)(source_y << 4);
+    u1 = (ef2_u16)(
+        ((ef2_u32)source_x +
+         source_width) << 4);
+    v1 = (ef2_u16)(
+        ((ef2_u32)source_y +
+         source_height) << 4);
 
     packet[0].lo =
         ef2_gif_pack_tag(
-            13, 1, 0, 0,
+            14, 1, 0, 0,
             EF2_GIF_FLG_PACKED, 1);
     packet[0].hi = EF2_GIF_REG_AD;
 
@@ -538,7 +566,7 @@ int ef2_video_draw_texture(
             texture->width_log2,
             texture->height_log2,
             1,
-            1),
+            0),
         EF2_GS_ADDR_TEX0_1);
 
     ef2_gif_ad(
@@ -546,36 +574,48 @@ int ef2_video_draw_texture(
         0,
         EF2_GS_ADDR_TEX1_1);
 
-    /*
-     * PRMODECONT.AC=1 makes PRIM own TME/FST/etc. Without this, a GS reset
-     * may leave those attributes sourced from PRMODE and the textured sprite
-     * degrades into the plain RGBAQ color.
-     */
     ef2_gif_ad(
         &packet[7],
         1,
         EF2_GS_ADDR_PRMODECONT);
 
+    /*
+     * Standard source-over:
+     * (Cs - Cd) * As / 128 + Cd.
+     * A=source, B=dest, C=source alpha, D=dest.
+     */
     ef2_gif_ad(
         &packet[8],
-        ef2_gs_pack_prim_ex(
-            EF2_GS_PRIM_SPRITE,
-            0, 1, 0, 0, 0, 1, 0, 0),
-        EF2_GS_ADDR_PRIM);
+        ef2_gs_pack_alpha(
+            0, 1, 0, 1, 0x80),
+        EF2_GS_ADDR_ALPHA_1);
 
     ef2_gif_ad(
         &packet[9],
+        ef2_gs_pack_prim_ex(
+            EF2_GS_PRIM_SPRITE,
+            0, 1, 0,
+            blend ? 1u : 0u,
+            0, 1, 0, 0),
+        EF2_GS_ADDR_PRIM);
+
+    /*
+     * TFX=MODULATE uses 0x80 as unity. This gives us a tint and a
+     * caller-controlled alpha without changing texture memory.
+     */
+    ef2_gif_ad(
+        &packet[10],
         ef2_gs_pack_rgbaq(
-            0x80, 0x80, 0x80, 0x80),
+            r, g, b, a),
         EF2_GS_ADDR_RGBAQ);
 
     ef2_gif_ad(
-        &packet[10],
-        ef2_gs_pack_uv(0, 0),
+        &packet[11],
+        ef2_gs_pack_uv(u0, v0),
         EF2_GS_ADDR_UV);
 
     ef2_gif_ad(
-        &packet[11],
+        &packet[12],
         ef2_gs_pack_xyz(
             (ef2_u16)((ef2_u32)x << 4),
             (ef2_u16)((ef2_u32)y << 4),
@@ -583,19 +623,47 @@ int ef2_video_draw_texture(
         EF2_GS_ADDR_XYZ2);
 
     ef2_gif_ad(
-        &packet[12],
+        &packet[13],
         ef2_gs_pack_uv(u1, v1),
         EF2_GS_ADDR_UV);
 
     ef2_gif_ad(
-        &packet[13],
+        &packet[14],
         ef2_gs_pack_xyz(
             (ef2_u16)((ef2_u32)right << 4),
             (ef2_u16)((ef2_u32)bottom << 4),
             0),
         EF2_GS_ADDR_XYZ2);
 
-    return ef2_video_submit_qwords(packet, 14);
+    return ef2_video_submit_qwords(packet, 15);
+}
+
+int ef2_video_draw_texture(
+    const ef2_video_texture *texture,
+    ef2_s32 x,
+    ef2_s32 y,
+    ef2_s32 width,
+    ef2_s32 height)
+{
+    if (texture ==
+        (const ef2_video_texture *)0)
+        return -1;
+
+    return ef2_video_draw_texture_region(
+        texture,
+        0,
+        0,
+        texture->width,
+        texture->height,
+        x,
+        y,
+        width,
+        height,
+        0x80,
+        0x80,
+        0x80,
+        0x80,
+        0);
 }
 
 int ef2_video_init(

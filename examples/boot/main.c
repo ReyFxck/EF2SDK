@@ -295,6 +295,35 @@ int main(void)
             48);
     }
 
+    /*
+     * Crop/UV + alpha smoke:
+     * draw the center 16x16 portion over a yellow base at 50% opacity.
+     */
+    (void)ef2_video_draw_rect(
+        304,
+        16,
+        96,
+        96,
+        232,
+        200,
+        32);
+
+    (void)ef2_video_draw_texture_region(
+        &checker_texture,
+        8,
+        8,
+        16,
+        16,
+        320,
+        32,
+        64,
+        64,
+        0x80,
+        0x80,
+        0x80,
+        0x40,
+        1);
+
     show_gif_transport_indicator();
 
     ef2_audio_status = ef2_audio_device_init();

@@ -89,6 +89,22 @@ int ef2_video_draw_texture(
     ef2_s32 width,
     ef2_s32 height);
 
+int ef2_video_draw_texture_region(
+    const ef2_video_texture *texture,
+    ef2_u16 source_x,
+    ef2_u16 source_y,
+    ef2_u16 source_width,
+    ef2_u16 source_height,
+    ef2_s32 x,
+    ef2_s32 y,
+    ef2_s32 width,
+    ef2_s32 height,
+    ef2_u8 r,
+    ef2_u8 g,
+    ef2_u8 b,
+    ef2_u8 a,
+    ef2_u8 blend);
+
 void ef2_video_set_background(
     ef2_u8 r,
     ef2_u8 g,
