@@ -15,6 +15,12 @@ HOST_AUDIO_TEST := $(BUILD)/audio-rate-test
 HOST_PAD_TEST := $(BUILD)/pad-input-test
 HOST_HEAP_TEST := $(BUILD)/heap-test
 HOST_LIBC_TEST := $(BUILD)/libc-test
+HOST_ZLIB_TEST := $(BUILD)/zlib-host-test
+ZLIB_TARGET_DIR := $(BUILD)/ports/zlib-target
+ZLIB_HOST_DIR := $(BUILD)/ports/zlib-host
+ZLIB_TARGET_LIB := $(ZLIB_TARGET_DIR)/libz.a
+ZLIB_HOST_LIB := $(ZLIB_HOST_DIR)/libz.a
+ZLIB_LINK_TEST := $(BUILD)/zlib-link-test.elf
 IOP_AUDIO_DIR := src/iop/audio
 IOP_AUDIO_IRX := $(BUILD)/ef2audio.irx
 IOP_AUDIO_C := $(BUILD)/ef2audio_irx.c
@@ -55,7 +61,7 @@ APP_OBJS := \
     $(BUILD)/start.o \
     $(BUILD)/boot.o
 
-.PHONY: all clean check host-test package toolchain-info
+.PHONY: all clean check host-test ports package toolchain-info
 
 all: $(ELF) $(LIB) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 
@@ -156,11 +162,36 @@ $(HOST_LIBC_TEST): tests/libc_test.c src/ee/runtime/libc_memory.c include/ef2/li
 		-DEF2_LIBC_NO_STANDARD_ALIASES -Iinclude \
 		tests/libc_test.c src/ee/runtime/libc_memory.c -o $@
 
-host-test: $(HOST_AUDIO_TEST) $(HOST_PAD_TEST) $(HOST_HEAP_TEST) $(HOST_LIBC_TEST)
+$(ZLIB_HOST_LIB): ports/zlib/build.sh ports/zlib/ef2_zutil.c | $(BUILD)
+	CC="$(HOSTCC)" AR="ar" ./ports/zlib/build.sh host $(ZLIB_HOST_DIR)
+
+$(HOST_ZLIB_TEST): tests/zlib_test.c $(ZLIB_HOST_LIB) | $(BUILD)
+	$(HOSTCC) -std=c11 -O2 -Wall -Wextra -Werror \
+		-I$(ZLIB_HOST_DIR) tests/zlib_test.c $(ZLIB_HOST_LIB) -o $@
+
+host-test: $(HOST_AUDIO_TEST) $(HOST_PAD_TEST) $(HOST_HEAP_TEST) $(HOST_LIBC_TEST) $(HOST_ZLIB_TEST)
 	$(HOST_AUDIO_TEST)
 	$(HOST_PAD_TEST)
 	$(HOST_HEAP_TEST)
 	$(HOST_LIBC_TEST)
+	$(HOST_ZLIB_TEST)
+
+$(ZLIB_TARGET_LIB): ports/zlib/build.sh ports/zlib/ef2_zutil.c | $(BUILD)
+	CC="$(CC)" AR="$(AR)" ./ports/zlib/build.sh target $(ZLIB_TARGET_DIR)
+
+$(BUILD)/zlib_link_test.o: tests/zlib_test.c $(ZLIB_TARGET_LIB) | $(BUILD)
+	$(CC) $(CFLAGS) -I$(ZLIB_TARGET_DIR) -c tests/zlib_test.c -o $@
+
+$(ZLIB_LINK_TEST): $(BUILD)/start.o $(BUILD)/zlib_link_test.o $(ZLIB_TARGET_LIB) $(LIB) ld/ee.ld
+	$(CC) $(LDFLAGS) $(BUILD)/start.o $(BUILD)/zlib_link_test.o \
+		$(ZLIB_TARGET_LIB) $(LIB) -o $@
+	@if $(NM) -u $@ | grep -q .; then \
+		echo "ERROR: zlib port has unresolved target symbols"; \
+		$(NM) -u $@; \
+		exit 1; \
+	fi
+
+ports: $(ZLIB_TARGET_LIB) $(ZLIB_LINK_TEST)
 
 check: $(ELF) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 	@echo "== Undefined symbols =="
@@ -184,7 +215,7 @@ check: $(ELF) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 	@echo "== Disassembly preview =="
 	$(OBJDUMP) -d $(ELF) | head -n 180
 
-package: clean all check
+package: clean all ports check
 	./scripts/package.sh
 
 toolchain-info:

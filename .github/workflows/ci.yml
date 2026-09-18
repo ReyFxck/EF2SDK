@@ -30,7 +30,7 @@ jobs:
         run: make toolchain-info
 
       - name: Build and verify
-        run: make clean host-test all check
+        run: make clean host-test all ports check
 
       - name: Package
         run: make package
@@ -45,6 +45,7 @@ jobs:
             build/ef2-boot.elf
             build/ef2-boot.map
             build/libef2.a
+            build/ports/zlib-target/libz.a
             build/ef2audio.irx
           if-no-files-found: error
           retention-days: 14

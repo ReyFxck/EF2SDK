@@ -111,3 +111,24 @@ Third-party builds can opt in with:
 The host CI compiles the memory/string implementation with standard aliases
 disabled so the test executable cannot accidentally replace the host C
 runtime's allocator/string functions.
+
+
+## Third-party port: zlib
+
+The first real third-party port is upstream zlib 1.3.2. EF2SDK does not vendor
+the upstream source tree. The port target downloads the pinned release archive,
+checks its SHA-256 digest and builds a separate `libz.a`.
+
+Only the in-memory compression core is enabled initially. The gz*/stdio layer
+is intentionally excluded until EF2SDK has a filesystem/stdio strategy.
+
+The port is compiled with `-mlong32` and a generated, plainly marked
+EF2-specific zconf.h. This is necessary because the R5900 EABI normally gives
+C `long` 64-bit width, while zlib's traditional `uLong` public scalar and
+many internal arithmetic assumptions are naturally 32-bit. The packaged
+zconf.h fixes `uLong` to unsigned int so application code built with normal
+EF2 flags sees the same ABI as libz.
+
+Allocation and memory operations resolve through EF2SDK's minimal libc layer.
+CI runs an actual host compress/uncompress roundtrip and also links the same
+test against the R5900 `libz.a + libef2.a` with no libc/libgcc defaults.

@@ -98,7 +98,9 @@
 - [x] memory/string primitives and malloc-family standard aliases
 - [ ] formatted I/O / printf-family strategy
 - [ ] C++ runtime strategy
-- [ ] zlib
+- [x] initial upstream zlib 1.3.2 in-memory core port
+- [x] host compress/uncompress regression test + target freestanding link test
+- [ ] zlib gz*/stdio layer
 - [ ] libpng
 - [ ] FreeType
 - [ ] SDL3 feasibility

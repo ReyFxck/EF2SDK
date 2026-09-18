@@ -18,6 +18,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - a direct GIF FIFO path plus preferred GIF DMA transport with explicit fallback diagnostics, without gsKit or PS2SDK libraries;
 - initial framebuffer scanout with optional VSync-synchronized double buffering, solid rectangle/line primitives, page-safe texture VRAM allocation, RGBA32/PSMT8/PSMT4 uploads, CSM1 CLUTs, textured sprites, UV cropping and alpha blending;
 - a reusable `libef2.a` static library;
+- an initial pinned upstream zlib 1.3.2 in-memory port producing a separate `libz.a`;
 - a source-rate-agnostic EF2Audio core with fixed-point resampling and S16 mixing;
 - a minimal independent EE SIFCMD/RPC client and in-memory IRX loader;
 - an `ef2audio.irx` service with its own IOP ring buffer and private RPC protocol;
@@ -59,6 +60,7 @@ The build produces:
 ```text
 build/ef2-boot.elf
 build/libef2.a
+build/ports/zlib-target/libz.a
 build/ef2audio.irx
 build/ef2pad.irx
 ```
