@@ -16,7 +16,7 @@ cp build/ef2pad.irx "${STAGE}/iop/"
 cp -R include/ef2 "${STAGE}/include/"
 cp ld/ee.ld "${STAGE}/ld/"
 cp README.md LICENSE VERSION "${STAGE}/"
-cp docs/ARCHITECTURE.md docs/ROADMAP.md docs/AUDIO.md docs/PAD.md "${STAGE}/docs/"
+cp docs/ARCHITECTURE.md docs/ROADMAP.md docs/AUDIO.md docs/PAD.md docs/VIDEO.md "${STAGE}/docs/"
 
 (
     cd "${DIST}"

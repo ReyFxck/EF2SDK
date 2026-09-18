@@ -17,13 +17,23 @@
 
 #define EF2_GS_PSMCT32 0u
 
+#define EF2_GS_VRAM_BYTES (4u * 1024u * 1024u)
+
 #define EF2_GS_ADDR_PRIM       0x00u
 #define EF2_GS_ADDR_RGBAQ      0x01u
+#define EF2_GS_ADDR_UV         0x03u
 #define EF2_GS_ADDR_XYZ2       0x05u
+#define EF2_GS_ADDR_TEX0_1     0x06u
+#define EF2_GS_ADDR_TEX1_1     0x14u
 #define EF2_GS_ADDR_XYOFFSET_1 0x18u
+#define EF2_GS_ADDR_TEXFLUSH   0x3Fu
 #define EF2_GS_ADDR_SCISSOR_1  0x40u
 #define EF2_GS_ADDR_TEST_1     0x47u
 #define EF2_GS_ADDR_FRAME_1    0x4Cu
+#define EF2_GS_ADDR_BITBLTBUF  0x50u
+#define EF2_GS_ADDR_TRXPOS     0x51u
+#define EF2_GS_ADDR_TRXREG     0x52u
+#define EF2_GS_ADDR_TRXDIR     0x53u
 
 #define EF2_GS_PRIM_LINE   0x01u
 #define EF2_GS_PRIM_SPRITE 0x06u
@@ -114,6 +124,80 @@ static inline ef2_u64 ef2_gs_pack_scissor(
 static inline ef2_u64 ef2_gs_pack_prim(ef2_u8 prim)
 {
     return (ef2_u64)(prim & 0x07u);
+}
+
+static inline ef2_u64 ef2_gs_pack_prim_ex(
+    ef2_u8 prim,
+    ef2_u8 iip,
+    ef2_u8 tme,
+    ef2_u8 fge,
+    ef2_u8 abe,
+    ef2_u8 aa1,
+    ef2_u8 fst,
+    ef2_u8 ctxt,
+    ef2_u8 fix)
+{
+    return ((ef2_u64)(prim & 0x07u) << 0) |
+           ((ef2_u64)(iip & 1u) << 3) |
+           ((ef2_u64)(tme & 1u) << 4) |
+           ((ef2_u64)(fge & 1u) << 5) |
+           ((ef2_u64)(abe & 1u) << 6) |
+           ((ef2_u64)(aa1 & 1u) << 7) |
+           ((ef2_u64)(fst & 1u) << 8) |
+           ((ef2_u64)(ctxt & 1u) << 9) |
+           ((ef2_u64)(fix & 1u) << 10);
+}
+
+static inline ef2_u64 ef2_gs_pack_uv(
+    ef2_u16 u,
+    ef2_u16 v)
+{
+    return ((ef2_u64)(u & 0x3FFFu) << 0) |
+           ((ef2_u64)(v & 0x3FFFu) << 16);
+}
+
+static inline ef2_u64 ef2_gs_pack_tex0(
+    ef2_u16 tbp0,
+    ef2_u8 tbw,
+    ef2_u8 psm,
+    ef2_u8 tw,
+    ef2_u8 th,
+    ef2_u8 tcc,
+    ef2_u8 tfx)
+{
+    return ((ef2_u64)(tbp0 & 0x3FFFu) << 0) |
+           ((ef2_u64)(tbw & 0x3Fu) << 14) |
+           ((ef2_u64)(psm & 0x3Fu) << 20) |
+           ((ef2_u64)(tw & 0x0Fu) << 26) |
+           ((ef2_u64)(th & 0x0Fu) << 30) |
+           ((ef2_u64)(tcc & 1u) << 34) |
+           ((ef2_u64)(tfx & 3u) << 35);
+}
+
+static inline ef2_u64 ef2_gs_pack_bitbltbuf(
+    ef2_u16 dbp,
+    ef2_u8 dbw,
+    ef2_u8 dpsm)
+{
+    return ((ef2_u64)(dbp & 0x3FFFu) << 32) |
+           ((ef2_u64)(dbw & 0x3Fu) << 48) |
+           ((ef2_u64)(dpsm & 0x3Fu) << 56);
+}
+
+static inline ef2_u64 ef2_gs_pack_trxpos(
+    ef2_u16 dx,
+    ef2_u16 dy)
+{
+    return ((ef2_u64)(dx & 0x07FFu) << 32) |
+           ((ef2_u64)(dy & 0x07FFu) << 48);
+}
+
+static inline ef2_u64 ef2_gs_pack_trxreg(
+    ef2_u16 width,
+    ef2_u16 height)
+{
+    return ((ef2_u64)(width & 0x0FFFu) << 0) |
+           ((ef2_u64)(height & 0x0FFFu) << 32);
 }
 
 static inline ef2_u64 ef2_gs_pack_rgbaq(

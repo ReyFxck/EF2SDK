@@ -15,8 +15,8 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - a raw EE kernel syscall wrapper for `SetGsCrt`;
 - initial GS privileged-register definitions;
 - explicit NTSC/PAL video-mode selection;
-- a direct GIF FIFO path for small GS packets, without gsKit or PS2SDK libraries;
-- initial framebuffer scanout, solid rectangle/sprite and line drawing primitives;
+- a direct GIF FIFO path plus preferred GIF DMA transport with explicit fallback diagnostics, without gsKit or PS2SDK libraries;
+- initial framebuffer scanout, solid rectangle/line primitives, page-safe texture VRAM allocation, RGBA32 upload and textured sprites;
 - a reusable `libef2.a` static library;
 - a source-rate-agnostic EF2Audio core with fixed-point resampling and S16 mixing;
 - a minimal independent EE SIFCMD/RPC client and in-memory IRX loader;

@@ -37,9 +37,13 @@
 - [ ] automatic region/default-mode selection
 - [ ] public framebuffer allocation/configuration API
 - [x] initial GIF DMA normal-mode path with FIFO fallback
-- [ ] validate GIF DMA transport on emulator and real hardware
+- [ ] validate GIF DMA transport on real hardware
+- [x] explicit emulator-visible GIF DMA/fallback diagnostic
 - [x] initial solid rectangle/sprite and line primitive API
-- [ ] textured sprite and VRAM upload API
+- [x] initial page-safe VRAM texture allocator
+- [x] initial PSMCT32 host-to-local texture upload
+- [x] initial textured sprite API
+- [ ] indexed textures/CLUT support
 
 ## P3 - Input and IOP
 

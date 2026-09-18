@@ -14,6 +14,10 @@ typedef struct {
 
 #define EF2_GIF_REG_AD 0x0Eu
 
+#define EF2_GIF_FLG_PACKED 0u
+#define EF2_GIF_FLG_REGLIST 1u
+#define EF2_GIF_FLG_IMAGE 2u
+
 static inline ef2_u64 ef2_gif_pack_tag(
     ef2_u16 nloop,
     ef2_u8 eop,

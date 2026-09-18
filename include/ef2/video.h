@@ -28,6 +28,18 @@ typedef struct {
     ef2_u32 dma_fallbacks;
 } ef2_video_transport_stats;
 
+typedef struct {
+    ef2_u16 vram_address;
+    ef2_u16 width;
+    ef2_u16 height;
+    ef2_u8 buffer_width;
+    ef2_u8 psm;
+    ef2_u8 width_log2;
+    ef2_u8 height_log2;
+    ef2_u8 valid;
+    ef2_u8 reserved[3];
+} ef2_video_texture;
+
 int ef2_video_init(const ef2_video_config *config);
 
 int ef2_video_get_size(
@@ -59,6 +71,23 @@ int ef2_video_draw_line(
     ef2_u8 r,
     ef2_u8 g,
     ef2_u8 b);
+
+void ef2_video_reset_texture_allocator(void);
+
+ef2_u32 ef2_video_get_texture_vram_free(void);
+
+int ef2_video_upload_rgba32(
+    ef2_video_texture *texture,
+    const ef2_u32 *pixels,
+    ef2_u16 width,
+    ef2_u16 height);
+
+int ef2_video_draw_texture(
+    const ef2_video_texture *texture,
+    ef2_s32 x,
+    ef2_s32 y,
+    ef2_s32 width,
+    ef2_s32 height);
 
 void ef2_video_set_background(
     ef2_u8 r,

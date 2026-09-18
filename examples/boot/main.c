@@ -16,6 +16,7 @@ volatile ef2_s32 ef2_audio_status;
 
 static ef2_s16 g_melody_input[EF2_MELODY_INPUT_FRAMES * 2u];
 static ef2_s16 g_melody_output[EF2_MELODY_OUTPUT_FRAMES * 2u];
+static ef2_u32 g_checkerboard[32u * 32u] EF2_ALIGN(16);
 
 static const ef2_u16 g_melody_notes[] = {
     262, 330, 392, 523,
@@ -58,6 +59,58 @@ static ef2_s16 melody_sample(ef2_u32 absolute_frame)
 
     sample = (sample * (ef2_s32)envelope) / 256;
     return (ef2_s16)sample;
+}
+
+static void generate_checkerboard(void)
+{
+    ef2_u32 y;
+
+    for (y = 0; y < 32u; ++y) {
+        ef2_u32 x;
+
+        for (x = 0; x < 32u; ++x) {
+            ef2_u32 checker =
+                ((x >> 3) ^ (y >> 3)) & 1u;
+
+            g_checkerboard[y * 32u + x] =
+                checker
+                    ? 0x80F05020u
+                    : 0x802040F0u;
+        }
+    }
+}
+
+static void show_gif_transport_indicator(void)
+{
+    ef2_video_transport_stats stats;
+
+    if (ef2_video_get_transport_stats(
+            &stats) != 0)
+        return;
+
+    if (stats.dma_available &&
+        stats.dma_fallbacks == 0u) {
+        (void)ef2_video_draw_rect(
+            128, 16, 32, 32,
+            32, 224, 80);
+    } else {
+        (void)ef2_video_draw_rect(
+            128, 16, 32, 32,
+            232, 112, 24);
+    }
+
+    /*
+     * Re-read after drawing the indicator itself. If that packet caused
+     * the first DMA failure, overwrite the square in orange via FIFO.
+     */
+    if (ef2_video_get_transport_stats(
+            &stats) == 0 &&
+        (!stats.dma_available ||
+         stats.dma_fallbacks != 0u)) {
+        (void)ef2_video_draw_rect(
+            128, 16, 32, 32,
+            232, 112, 24);
+    }
 }
 
 static void generate_melody_window(ef2_u32 source_frame)
@@ -186,6 +239,7 @@ int main(void)
     ef2_s32 analog_visual_active = 0;
     ef2_u8 rumble_small = 0;
     ef2_u8 rumble_large = 0;
+    ef2_video_texture checker_texture;
 
     ef2_boot_counter = 1;
     ef2_audio_status = -1;
@@ -216,6 +270,32 @@ int main(void)
         224,
         224,
         224);
+
+    generate_checkerboard();
+
+    if (ef2_video_upload_rgba32(
+            &checker_texture,
+            g_checkerboard,
+            32,
+            32) == 0) {
+        (void)ef2_video_draw_texture(
+            &checker_texture,
+            176,
+            16,
+            96,
+            96);
+    } else {
+        (void)ef2_video_draw_rect(
+            176,
+            16,
+            96,
+            96,
+            220,
+            40,
+            48);
+    }
+
+    show_gif_transport_indicator();
 
     ef2_audio_status = ef2_audio_device_init();
     if (ef2_audio_status != 0) {
