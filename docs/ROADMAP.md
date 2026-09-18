@@ -46,8 +46,11 @@
 - [x] initial textured sprite API
 - [x] partial UV/crop textured sprite API
 - [x] RGBA modulation and source-over alpha blending
+- [x] validate UV crop + alpha blending in NetherSX2 (2026-09-18)
 - [x] initial PSMT8 indexed texture + RGBA32 CSM1 CLUT support
+- [x] validate PSMT8 + 256-color CLUT in NetherSX2 (2026-09-18)
 - [x] initial PSMT4 indexed texture + 16-color RGBA32 CSM1 CLUT support
+- [x] validate PSMT4 + 16-color CLUT in NetherSX2 (2026-09-18)
 
 ## P3 - Input and IOP
 

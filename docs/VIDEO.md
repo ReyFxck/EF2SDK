@@ -125,3 +125,21 @@ PSMCT32 CSM1 CLUT. A 16-color CSM1 CLUT uses identity entry order, unlike the
 
 PSMT4 storage is reserved with the 128x128 GS page geometry. The alpha.28
 smoke test draws a generated 16-color 32x32 pattern beside the PSMT8 test.
+
+
+## NetherSX2 validation through alpha.28
+
+The alpha.28 smoke screen was visually validated in NetherSX2 on 2026-09-18.
+
+The validated screen simultaneously showed:
+
+- the original solid rectangle and line primitives;
+- the green GIF DMA/no-fallback indicator;
+- the RGBA32 checkerboard texture;
+- a cropped checkerboard region blended over a yellow destination;
+- a PSMT8 indexed texture with its 256-entry RGBA32 CSM1 CLUT;
+- a PSMT4 indexed texture with its 16-entry RGBA32 CSM1 CLUT.
+
+This confirms the current emulator path from EE-side texture data through GIF
+DMA, host-to-local transfer, VRAM allocation, TEX0/UV sampling, alpha blending
+and both indexed CLUT formats.
