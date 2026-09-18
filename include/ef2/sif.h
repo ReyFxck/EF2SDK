@@ -41,6 +41,8 @@ int ef2_sif_call(
     void *receive_buffer,
     ef2_u32 receive_size);
 
+int ef2_iop_get_romver(char *romver, ef2_u32 capacity);
+
 int ef2_iop_load_module(const char *path);
 int ef2_iop_load_module_ex(const char *path, ef2_s32 *module_result);
 

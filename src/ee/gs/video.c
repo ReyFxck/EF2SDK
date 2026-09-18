@@ -1,6 +1,7 @@
 #include <ef2/gif.h>
 #include <ef2/gs.h>
 #include <ef2/kernel.h>
+#include <ef2/sif.h>
 #include <ef2/video.h>
 
 #define EF2_GS_TEXTURE_PAGE_BYTES 8192u
@@ -10,6 +11,7 @@
 
 static ef2_u16 ef2_video_width;
 static ef2_u16 ef2_video_height;
+static ef2_video_config ef2_video_active_config;
 static ef2_u32 ef2_video_gif_dma_available;
 static ef2_u32 ef2_video_gif_dma_fallbacks;
 static ef2_u32 ef2_video_texture_start;
@@ -61,6 +63,29 @@ static int ef2_video_standard_valid(
 {
     return standard == EF2_VIDEO_NTSC ||
            standard == EF2_VIDEO_PAL;
+}
+
+int ef2_video_detect_standard(
+    ef2_video_standard *standard)
+{
+    char romver[15];
+    int result;
+
+    if (standard == (ef2_video_standard *)0)
+        return -1;
+
+    result = ef2_iop_get_romver(
+        romver,
+        sizeof(romver));
+    if (result < 0)
+        return -2;
+
+    *standard =
+        romver[4] == 'E'
+            ? EF2_VIDEO_PAL
+            : EF2_VIDEO_NTSC;
+
+    return 0;
 }
 
 static void ef2_gif_ad(
@@ -345,6 +370,18 @@ void ef2_video_set_background(
     *EF2_GS_REG_BGCOLOR =
         ef2_gs_pack_bgcolor(r, g, b);
     ef2_gs_sync();
+}
+
+int ef2_video_get_config(
+    ef2_video_config *config)
+{
+    if (config == (ef2_video_config *)0 ||
+        ef2_video_width == 0u ||
+        ef2_video_height == 0u)
+        return -1;
+
+    *config = ef2_video_active_config;
+    return 0;
 }
 
 int ef2_video_get_size(
@@ -1276,6 +1313,7 @@ int ef2_video_draw_texture(
 int ef2_video_init(
     const ef2_video_config *config)
 {
+    ef2_video_standard standard;
     ef2_u16 dx;
     ef2_u16 dy;
     ef2_u32 framebuffer_bytes;
@@ -1284,15 +1322,21 @@ int ef2_video_init(
         (const ef2_video_config *)0)
         return -1;
 
-    if (!ef2_video_standard_valid(
-            config->standard))
+    standard = config->standard;
+    if (standard == EF2_VIDEO_AUTO) {
+        if (ef2_video_detect_standard(
+                &standard) < 0)
+            standard = EF2_VIDEO_NTSC;
+    }
+
+    if (!ef2_video_standard_valid(standard))
         return -2;
 
     if (!config->interlaced ||
         config->field_mode != EF2_VIDEO_FIELD)
         return -3;
 
-    if (config->standard == EF2_VIDEO_PAL) {
+    if (standard == EF2_VIDEO_PAL) {
         ef2_video_width = 640;
         ef2_video_height = 512;
         dx = 680;
@@ -1324,6 +1368,9 @@ int ef2_video_init(
     ef2_video_double_buffered = 0u;
     ef2_video_present_count = 0u;
     ef2_video_vsync_timeouts = 0u;
+    ef2_video_active_config.standard = standard;
+    ef2_video_active_config.interlaced = config->interlaced;
+    ef2_video_active_config.field_mode = config->field_mode;
     ef2_profile_reset(
         &ef2_video_vsync_wait_ticks);
 
@@ -1357,7 +1404,7 @@ int ef2_video_init(
 
     ef2_kernel_set_gs_crt(
         (ef2_s16)1,
-        (ef2_s16)config->standard,
+        (ef2_s16)standard,
         (ef2_s16)EF2_VIDEO_FIELD);
 
     ef2_video_set_background(0, 0, 0);

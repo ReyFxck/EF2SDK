@@ -20,6 +20,7 @@
 - [x] initial range-based EE D-cache writeback/invalidate helper
 - [x] first raw kernel syscall wrapper (`SetGsCrt`, syscall 0x02)
 - [x] initial general kernel syscall wrappers (thread/semaphore/core system calls)
+- [x] validate initial general kernel syscall smoke in NetherSX2 (2026-09-18)
 - [x] initial INTC/DMAC interrupt primitives
 - [x] initial EE hardware timer API and COP0 Count helper
 
@@ -34,7 +35,8 @@
 - [x] framebuffer clear implemented as a GS sprite
 - [x] validate visible framebuffer clear in NetherSX2 (2026-09-17)
 - [ ] validate framebuffer path on real hardware
-- [ ] automatic region/default-mode selection
+- [x] automatic ROMVER-based NTSC/PAL default-mode selection
+- [ ] validate automatic default-mode selection across NTSC and PAL BIOSes
 - [x] initial two-framebuffer VRAM reservation and explicit present API
 - [x] bounded GS VSINT/VSync wait helper
 - [x] initial VSync-synchronized double buffering

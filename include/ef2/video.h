@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 typedef enum {
+    EF2_VIDEO_AUTO = 0x00,
     EF2_VIDEO_NTSC = 0x02,
     EF2_VIDEO_PAL  = 0x03
 } ef2_video_standard;
@@ -53,7 +54,11 @@ typedef struct {
     ef2_u8 reserved[2];
 } ef2_video_texture;
 
+int ef2_video_detect_standard(ef2_video_standard *standard);
+
 int ef2_video_init(const ef2_video_config *config);
+
+int ef2_video_get_config(ef2_video_config *config);
 
 int ef2_video_get_size(
     ef2_u16 *width,

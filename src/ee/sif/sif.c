@@ -121,6 +121,14 @@ typedef struct {
 
 typedef struct {
     union {
+        void *addr;
+        ef2_s32 result;
+    } p;
+    char path[EF2_LF_PATH_MAX];
+} EF2_ALIGN(64) ef2_iop_heap_load_arg;
+
+typedef struct {
+    union {
         ef2_s32 arg_len;
         ef2_s32 result;
     } p;
@@ -163,6 +171,7 @@ static ef2_s32 g_loadfile_bound;
 static ef2_lf_module_load_arg g_load_arg;
 static ef2_lf_module_buffer_arg g_load_buffer_arg;
 static ef2_u32 g_heap_arg[4] EF2_ALIGN(64);
+static ef2_iop_heap_load_arg g_heap_load_arg;
 
 static void *ef2_uncached(void *ptr)
 {
@@ -814,6 +823,61 @@ static int ef2_iop_read(
         dest[i] = source[i];
     ef2_iop_window_exit();
 
+    return 0;
+}
+
+int ef2_iop_get_romver(char *romver, ef2_u32 capacity)
+{
+    void *iop_address;
+    int result;
+
+    if (romver == (char *)0 || capacity < 15u)
+        return -1;
+
+    result = ef2_sif_init();
+    if (result < 0)
+        return -2;
+
+    iop_address = ef2_iop_alloc(256u);
+    if (iop_address == (void *)0)
+        return -3;
+
+    ef2_zero(&g_heap_load_arg, sizeof(g_heap_load_arg));
+    g_heap_load_arg.p.addr = iop_address;
+    ef2_copy_string(
+        g_heap_load_arg.path,
+        "rom:ROMVER",
+        sizeof(g_heap_load_arg.path));
+
+    result = ef2_sif_call(
+        &g_heap_client,
+        3,
+        &g_heap_load_arg,
+        sizeof(g_heap_load_arg),
+        &g_heap_load_arg,
+        4);
+
+    if (result < 0) {
+        (void)ef2_iop_free(iop_address);
+        return -4;
+    }
+
+    if (g_heap_load_arg.p.result < 0) {
+        result = g_heap_load_arg.p.result;
+        (void)ef2_iop_free(iop_address);
+        return -5 + result;
+    }
+
+    result = ef2_iop_read(
+        (ef2_u32)iop_address,
+        romver,
+        14u);
+    (void)ef2_iop_free(iop_address);
+
+    if (result < 0)
+        return -6;
+
+    romver[14] = '\0';
     return 0;
 }
 

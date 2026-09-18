@@ -202,3 +202,23 @@ The captured frame simultaneously confirmed:
 
 This closes emulator validation for the first RGBA32, PSMT8 and PSMT4 texture
 paths. Real-hardware validation remains pending.
+
+
+## Alpha.42 automatic console default
+
+Alpha.42 adds `EF2_VIDEO_AUTO`. When requested, EF2 Video reads the console's
+`rom:ROMVER` through EF2SDK's own SIFRPC/IOP-heap client and uses the ROMVER
+region byte to select the default analog TV standard: region `E` selects PAL;
+other standard retail regions select NTSC. This follows the console ROM region
+rather than emulator host settings.
+
+The ROMVER read does not link PS2SDK at runtime. EF2SDK asks the ROM IOP heap
+service to load ROMVER into temporary IOP memory, copies the 14-byte identifier
+through its existing EE-visible IOP window, then frees the temporary block.
+If automatic detection is unavailable, video initialization falls back to NTSC
+instead of failing boot.
+
+`ef2_video_get_config()` exposes the resolved active configuration, so callers
+never have to treat `EF2_VIDEO_AUTO` as the post-initialization mode. The boot
+smoke now requests AUTO and logs the resolved standard, framebuffer size and
+ROMVER string before running the existing validated drawing path.

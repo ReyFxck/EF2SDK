@@ -87,3 +87,12 @@ retrieves its status, creates a one-count semaphore, polls it, signals it back
 and deletes it. A successful run emits an `[EF2][KERNEL]` line before the
 existing timer/video/audio/input tests. No new scheduler thread is left
 resident after the smoke.
+
+
+## Alpha.41 NetherSX2 validation
+
+The Alpha.41 smoke was validated in NetherSX2 on 2026-09-18. The captured
+kernel line reported thread id 1, successful thread-status lookup, a complete
+create/poll/signal/delete semaphore round trip, 33554432 bytes of installed
+memory and machine type 0. The existing Timer0, GIF DMA, VSync, audio and pad
+smokes then continued successfully before the deliberate manual trap.

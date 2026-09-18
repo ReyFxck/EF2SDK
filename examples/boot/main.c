@@ -327,7 +327,7 @@ static void show_init_failure(ef2_s32 status)
 int main(int argc, char **argv)
 {
     const ef2_video_config video = {
-        .standard = EF2_VIDEO_NTSC,
+        .standard = EF2_VIDEO_AUTO,
         .interlaced = 1,
         .field_mode = EF2_VIDEO_FIELD,
     };
@@ -358,7 +358,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.41 start argc=%d\n",
+        "alpha.42 start argc=%d\n",
         argc);
 
     {
@@ -500,10 +500,34 @@ int main(int argc, char **argv)
 
     ef2_video_status = ef2_video_init(&video);
 
-    (void)ef2_debug_printf(
-        "VIDEO",
-        "init=%d\n",
-        ef2_video_status);
+    {
+        ef2_video_config active_video = {0};
+        ef2_u16 active_width = 0;
+        ef2_u16 active_height = 0;
+        char romver[15] = {0};
+        int config_result =
+            ef2_video_get_config(&active_video);
+        int size_result =
+            ef2_video_get_size(
+                &active_width,
+                &active_height);
+        int romver_result =
+            ef2_iop_get_romver(
+                romver,
+                sizeof(romver));
+
+        (void)ef2_debug_printf(
+            "VIDEO",
+            "init=%d auto_standard=%u config=%d size=%d %ux%u romver=%d %s\n",
+            ef2_video_status,
+            (ef2_u32)active_video.standard,
+            config_result,
+            size_result,
+            (ef2_u32)active_width,
+            (ef2_u32)active_height,
+            romver_result,
+            romver_result == 0 ? romver : "?");
+    }
     if (ef2_video_status != 0) {
         for (;;)
             ++ef2_boot_counter;
