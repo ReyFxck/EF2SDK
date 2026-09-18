@@ -37,3 +37,34 @@
     EF2_SYSCALL ef2_kernel_isif_set_dchain, -0x78
     EF2_SYSCALL ef2_kernel_sif_set_reg, 0x79
     EF2_SYSCALL ef2_kernel_sif_get_reg, 0x7a
+
+    EF2_SYSCALL ef2_kernel_create_thread, 0x20
+    EF2_SYSCALL ef2_kernel_delete_thread, 0x21
+    EF2_SYSCALL ef2_kernel_start_thread, 0x22
+    EF2_SYSCALL ef2_kernel_exit_thread, 0x23
+    EF2_SYSCALL ef2_kernel_exit_delete_thread, 0x24
+    EF2_SYSCALL ef2_kernel_terminate_thread, 0x25
+    EF2_SYSCALL ef2_kernel_change_thread_priority, 0x29
+    EF2_SYSCALL ef2_kernel_rotate_thread_ready_queue, 0x2b
+    EF2_SYSCALL ef2_kernel_release_wait_thread, 0x2d
+    EF2_SYSCALL ef2_kernel_get_thread_id, 0x2f
+    EF2_SYSCALL ef2_kernel_refer_thread_status, 0x30
+    EF2_SYSCALL ef2_kernel_sleep_thread, 0x32
+    EF2_SYSCALL ef2_kernel_wakeup_thread, 0x33
+    EF2_SYSCALL ef2_kernel_cancel_wakeup_thread, 0x35
+    EF2_SYSCALL ef2_kernel_suspend_thread, 0x37
+    EF2_SYSCALL ef2_kernel_resume_thread, 0x39
+
+    EF2_SYSCALL ef2_kernel_create_sema, 0x40
+    EF2_SYSCALL ef2_kernel_delete_sema, 0x41
+    EF2_SYSCALL ef2_kernel_signal_sema, 0x42
+    EF2_SYSCALL ef2_kernel_wait_sema, 0x44
+    EF2_SYSCALL ef2_kernel_poll_sema, 0x45
+    EF2_SYSCALL ef2_kernel_refer_sema_status, 0x47
+
+    EF2_SYSCALL ef2_kernel_enable_cache, 0x61
+    EF2_SYSCALL ef2_kernel_disable_cache, 0x62
+    EF2_SYSCALL ef2_kernel_get_cop0, 0x63
+    EF2_SYSCALL ef2_kernel_cpu_config, 0x66
+    EF2_SYSCALL ef2_kernel_machine_type, 0x7e
+    EF2_SYSCALL ef2_kernel_get_memory_size, 0x7f

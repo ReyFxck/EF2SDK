@@ -19,7 +19,7 @@
 - [x] main-return/KExit clean exit path
 - [x] initial range-based EE D-cache writeback/invalidate helper
 - [x] first raw kernel syscall wrapper (`SetGsCrt`, syscall 0x02)
-- [ ] general kernel syscall wrappers
+- [x] initial general kernel syscall wrappers (thread/semaphore/core system calls)
 - [x] initial INTC/DMAC interrupt primitives
 - [x] initial EE hardware timer API and COP0 Count helper
 
@@ -120,6 +120,7 @@
 - [x] validate crash handler in NetherSX2 (2026-09-18)
 - [ ] validate crash handler on real hardware
 - [x] initial lightweight profiler and GIF DMA/VSync timing counters
+- [x] validate GIF DMA/VSync profiling telemetry in NetherSX2 (2026-09-18)
 - [ ] package/port workflow for modern third-party libraries
 - [ ] compatibility adapters for selected legacy PS2 homebrew APIs
 

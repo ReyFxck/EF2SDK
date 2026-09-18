@@ -4,6 +4,7 @@
 #include <ef2/debug.h>
 #include <ef2/gif.h>
 #include <ef2/interrupt.h>
+#include <ef2/kernel.h>
 #include <ef2/pad.h>
 #include <ef2/timer.h>
 #include <ef2/video.h>
@@ -357,7 +358,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.40 start argc=%d\n",
+        "alpha.41 start argc=%d\n",
         argc);
 
     {
@@ -371,6 +372,61 @@ int main(int argc, char **argv)
             ef2_crash_is_installed());
 
         if (crash_result != 0) {
+            for (;;)
+                ++ef2_boot_counter;
+        }
+    }
+
+    {
+        ef2_kernel_thread_status thread_status = {0};
+        ef2_kernel_sema sema = {
+            .count = 1,
+            .max_count = 1,
+            .init_count = 1,
+            .wait_threads = 0,
+            .attr = 0,
+            .option = 0,
+        };
+        ef2_s32 thread_id =
+            ef2_kernel_get_thread_id();
+        ef2_s32 refer_result =
+            ef2_kernel_refer_thread_status(
+                thread_id,
+                &thread_status);
+        ef2_s32 sema_id =
+            ef2_kernel_create_sema(&sema);
+        ef2_s32 poll_result = -1;
+        ef2_s32 signal_result = -1;
+        ef2_s32 delete_result = -1;
+
+        if (sema_id >= 0) {
+            poll_result =
+                ef2_kernel_poll_sema(sema_id);
+            signal_result =
+                ef2_kernel_signal_sema(sema_id);
+            delete_result =
+                ef2_kernel_delete_sema(sema_id);
+        }
+
+        (void)ef2_debug_printf(
+            "KERNEL",
+            "thread=%d refer=%d prio=%d sema=%d poll=%d signal=%d delete=%d mem=%d machine=%d\n",
+            thread_id,
+            refer_result,
+            thread_status.current_priority,
+            sema_id,
+            poll_result,
+            signal_result,
+            delete_result,
+            ef2_kernel_get_memory_size(),
+            ef2_kernel_machine_type());
+
+        if (thread_id < 0 ||
+            refer_result < 0 ||
+            sema_id < 0 ||
+            poll_result < 0 ||
+            signal_result < 0 ||
+            delete_result < 0) {
             for (;;)
                 ++ef2_boot_counter;
         }

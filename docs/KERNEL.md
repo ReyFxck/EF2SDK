@@ -64,3 +64,26 @@ The boot smoke resets GIF statistics after video initialization, renders the
 existing validated diagnostic frame unchanged, presents it once, then emits
 `[EF2][PROFILE]` lines for GIF DMA and VSync. These counters are diagnostic
 telemetry only; they do not change transport fallback or rendering behavior.
+
+
+## Alpha.40 NetherSX2 validation
+
+The profiling telemetry was exercised in NetherSX2 on 2026-09-18. The captured
+boot log reported 21 GIF DMA submissions and 21 completions, 558 submitted
+QWC, zero DMA timeouts, one VSync timing sample and zero VSync timeouts. The
+smoke then continued through audio and pad initialization before the deliberate
+manual trap test.
+
+## Alpha.41 general kernel syscall surface
+
+Alpha.41 expands the EF2-owned raw syscall layer without adding a libkernel
+runtime dependency. The public header now includes EE thread and semaphore ABI
+structures plus wrappers for thread lifecycle/status/wakeup operations,
+semaphore create/delete/signal/wait/poll/status operations, cache control,
+COP0 access, CPU configuration, machine type and installed memory size.
+
+The boot smoke makes only reversible calls: it queries the current thread,
+retrieves its status, creates a one-count semaphore, polls it, signals it back
+and deletes it. A successful run emits an `[EF2][KERNEL]` line before the
+existing timer/video/audio/input tests. No new scheduler thread is left
+resident after the smoke.
