@@ -277,7 +277,10 @@ int ef2_storage_backend_mmce_read(const ef2_storage_device_info *device, ef2_s32
     result=mmce_exchange(device->physical_port,(const ef2_u8 *)0,0u,footer,sizeof(footer));
     if(result<0)return -4;
     bytes_read=((int)footer[1]<<24)|((int)footer[2]<<16)|((int)footer[3]<<8)|footer[4];
-    if(bytes_read<0)return -5;if((ef2_u32)bytes_read>size)bytes_read=(int)size;
+    if (bytes_read < 0)
+        return -5;
+    if ((ef2_u32)bytes_read > size)
+        bytes_read = (int)size;
     return bytes_read;
 }
 
@@ -298,7 +301,10 @@ int ef2_storage_backend_mmce_write(const ef2_storage_device_info *device, ef2_s3
     while(off<size){ef2_u32 chunk=size-off;if(chunk>256u)chunk=256u;result=mmce_exchange(device->physical_port,&data[off],chunk,(ef2_u8 *)0,0u);if(result<0)return -5;off+=chunk;}
     clear_bytes(footer,sizeof(footer));result=mmce_exchange(device->physical_port,(const ef2_u8 *)0,0u,footer,sizeof(footer));if(result<0)return -6;
     bytes_written=((int)footer[1]<<24)|((int)footer[2]<<16)|((int)footer[3]<<8)|footer[4];
-    if(bytes_written<0)return -7;if((ef2_u32)bytes_written>size)bytes_written=(int)size;
+    if (bytes_written < 0)
+        return -7;
+    if ((ef2_u32)bytes_written > size)
+        bytes_written = (int)size;
     return bytes_written;
 }
 
@@ -415,21 +421,31 @@ static int mx_initialize(void)
     g_mx_baud=MX_BAUD_SLOW;g_mx_initialized=0;g_mx_sector_count=0u;
     for(i=0;i<sizeof(dummy);++i)dummy[i]=0xFFu;
     if(mx_exchange(dummy,sizeof(dummy),(ef2_u8 *)0,0u)<0)return -1;
-    response=mx_send_command(SD_CMD0,0u);if(response!=0x01)return -2;
+    response = mx_send_command(SD_CMD0, 0u);
+    if (response != 0x01)
+        return -2;
     clear_bytes(ocr,sizeof(ocr));response=mx_send_command_data(SD_CMD8,0x1AAu,ocr,sizeof(ocr));
     if(response==0x01&&ocr[2]==0x01u&&ocr[3]==0xAAu){
         for(i=0;i<4096u;++i){response=mx_send_command(SD_CMD55,0u);if(response!=0x01)return -3;response=mx_send_command(SD_ACMD41,0x40000000u);if(response==0)break;}
         if(response!=0)return -4;
-        clear_bytes(ocr,sizeof(ocr));response=mx_send_command_data(SD_CMD58,0u,ocr,sizeof(ocr));if(response!=0)return -5;
+        clear_bytes(ocr, sizeof(ocr));
+        response = mx_send_command_data(
+            SD_CMD58, 0u, ocr, sizeof(ocr));
+        if (response != 0)
+            return -5;
         g_mx_card_type=(ocr[0]&0x40u)?MX_CARD_SDHC:MX_CARD_SDV2;
     }else{
         for(i=0;i<4096u;++i){response=mx_send_command(SD_CMD55,0u);if(response==0x01){response=mx_send_command(SD_ACMD41,0u);if(response==0)break;}}
         if(response==0){g_mx_card_type=MX_CARD_SDV1;}else{for(i=0;i<4096u;++i){response=mx_send_command(SD_CMD1,0u);if(response==0)break;}if(response!=0)return -6;g_mx_card_type=MX_CARD_MMC;}
-        (void)mx_send_command(SD_CMD59,0u);if(mx_send_command(SD_CMD16,512u)!=0)return -7;
+        (void)mx_send_command(SD_CMD59, 0u);
+        if (mx_send_command(SD_CMD16, 512u) != 0)
+            return -7;
     }
     g_mx_baud=MX_BAUD_FAST;
     if(mx_read_register(SD_CMD9,reg)<0)return -8;
-    g_mx_sector_count=mx_csd_sector_count(reg);if(g_mx_sector_count==0u)return -9;
+    g_mx_sector_count = mx_csd_sector_count(reg);
+    if (g_mx_sector_count == 0u)
+        return -9;
     g_mx_initialized=1;return 0;
 }
 
@@ -439,7 +455,9 @@ static int mx_read_sector(ef2_u32 sector,ef2_u8 data[512])
     if(!g_mx_initialized||sector>=g_mx_sector_count)return -1;
     if(g_mx_card_type!=MX_CARD_SDHC)address<<=9;
     if(mx_wait_equal(0xFFu,4096u)<0)return -2;
-    response=mx_send_command(SD_CMD17,address);if(response!=0)return -3;
+    response = mx_send_command(SD_CMD17, address);
+    if (response != 0)
+        return -3;
     if(mx_wait_equal(0xFEu,100000u)<0)return -4;
     if(mx_exchange((const ef2_u8 *)0,0u,data,256u)<0)return -5;
     if(mx_exchange((const ef2_u8 *)0,0u,data+256u,256u)<0)return -6;
@@ -453,13 +471,21 @@ static int mx_write_sector(ef2_u32 sector,const ef2_u8 data[512])
     if(!g_mx_initialized||sector>=g_mx_sector_count)return -1;
     if(g_mx_card_type!=MX_CARD_SDHC)address<<=9;
     if(mx_wait_equal(0xFFu,4096u)<0)return -2;
-    cmd=mx_send_command(SD_CMD24,address);if(cmd!=0)return -3;
+    cmd = mx_send_command(SD_CMD24, address);
+    if (cmd != 0)
+        return -3;
     if(mx_exchange(&token,1u,(ef2_u8 *)0,0u)<0)return -4;
     if(mx_exchange(data,256u,(ef2_u8 *)0,0u)<0)return -5;
     if(mx_exchange(data+256u,256u,(ef2_u8 *)0,0u)<0)return -6;
     if(mx_exchange(crc,sizeof(crc),(ef2_u8 *)0,0u)<0)return -7;
-    if(mx_receive_byte(&response)<0)return -8;if((response&0x1Fu)!=0x05u)return -9;
-    if(mx_wait_equal(0xFFu,0x80000u)<0)return -10;(void)mx_dummy();return 0;
+    if (mx_receive_byte(&response) < 0)
+        return -8;
+    if ((response & 0x1Fu) != 0x05u)
+        return -9;
+    if (mx_wait_equal(0xFFu, 0x80000u) < 0)
+        return -10;
+    (void)mx_dummy();
+    return 0;
 }
 
 int ef2_storage_backend_scan(ef2_storage_device_info *devices,ef2_u32 capacity,ef2_u32 *count)
@@ -473,7 +499,10 @@ int ef2_storage_backend_scan(ef2_storage_device_info *devices,ef2_u32 capacity,e
         if(mmce_result==0){
             info.kind=EF2_STORAGE_KIND_MMCE;
             info.capabilities=EF2_STORAGE_CAP_MEMORY_CARD|EF2_STORAGE_CAP_FILESYSTEM|EF2_STORAGE_CAP_VIRTUAL_CARDS|EF2_STORAGE_CAP_GAME_ID;
-            mc_result=mc_get_spec(port,&info);if(mc_result==0)info.capabilities|=EF2_STORAGE_CAP_GEOMETRY;
+            mc_result = mc_get_spec(port, &info);
+            if (mc_result == 0)
+                info.capabilities |=
+                    EF2_STORAGE_CAP_GEOMETRY;
             {int v=mmce_get_u16(port,0x03u);info.current_card=v<0?0u:(ef2_u32)v;}
             {int v=mmce_get_u16(port,0x05u);info.current_channel=v<0?0u:(ef2_u32)v;}
             {int v=mmce_get_u16(port,0x02u);info.status=v<0?0u:(ef2_u32)v;}
