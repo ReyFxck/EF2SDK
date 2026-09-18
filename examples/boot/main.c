@@ -322,7 +322,6 @@ int main(void)
         }
 
         if (audio_paused || audio_stopped) {
-        if (audio_paused || audio_stopped) {
             ++ef2_boot_counter;
             continue;
         }
