@@ -15,6 +15,27 @@ static ef2_u32 g_device_count;
 static int g_rpc_ready_sema = -1;
 
 static void clear_bytes(void *ptr, ef2_u32 size){ef2_u8 *p=(ef2_u8 *)ptr;ef2_u32 i;for(i=0;i<size;++i)p[i]=0u;}
+
+static void copy_device_info(
+    ef2_storage_device_info *dest,
+    const ef2_storage_device_info *source)
+{
+    dest->kind = source->kind;
+    dest->capabilities = source->capabilities;
+    dest->physical_port = source->physical_port;
+    dest->page_size = source->page_size;
+    dest->erase_block_pages = source->erase_block_pages;
+    dest->page_count = source->page_count;
+    dest->sector_size = source->sector_size;
+    dest->sector_count = source->sector_count;
+    dest->protocol_version = source->protocol_version;
+    dest->product_id = source->product_id;
+    dest->product_revision = source->product_revision;
+    dest->current_card = source->current_card;
+    dest->current_channel = source->current_channel;
+    dest->status = source->status;
+}
+
 static const ef2_storage_device_info *device_at(ef2_u32 index){return index<g_device_count?&g_devices[index]:(const ef2_storage_device_info *)0;}
 static int scan_devices(void){clear_bytes(g_devices,sizeof(g_devices));g_device_count=0u;return ef2_storage_backend_scan(g_devices,EF2_STORAGE_MAX_DEVICES,&g_device_count);}
 
@@ -30,7 +51,9 @@ static void *rpc_handler(int function,void *buffer,int length)
         case EF2_STORAGE_RPC_INIT: result=0; break;
         case EF2_STORAGE_RPC_SCAN: result=scan_devices(); break;
         case EF2_STORAGE_RPC_GET_DEVICE:
-            if(length<(int)sizeof(*request)||device==0){result=-1;break;}g_reply.device=*device;break;
+            if(length<(int)sizeof(*request)||device==0){result=-1;break;}
+            copy_device_info(&g_reply.device, device);
+            break;
         case EF2_STORAGE_RPC_READ_SECTOR:
             if(length<(int)sizeof(*request)||device==0){result=-1;break;}
             result=ef2_storage_backend_read_sector(device,request->sector,g_reply.data);

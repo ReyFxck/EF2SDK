@@ -47,6 +47,26 @@ static void clear_bytes(void *ptr, ef2_u32 size)
         bytes[i] = 0u;
 }
 
+static void copy_device_info(
+    ef2_storage_device_info *dest,
+    const ef2_storage_device_info *source)
+{
+    dest->kind = source->kind;
+    dest->capabilities = source->capabilities;
+    dest->physical_port = source->physical_port;
+    dest->page_size = source->page_size;
+    dest->erase_block_pages = source->erase_block_pages;
+    dest->page_count = source->page_count;
+    dest->sector_size = source->sector_size;
+    dest->sector_count = source->sector_count;
+    dest->protocol_version = source->protocol_version;
+    dest->product_id = source->product_id;
+    dest->product_revision = source->product_revision;
+    dest->current_card = source->current_card;
+    dest->current_channel = source->current_channel;
+    dest->status = source->status;
+}
+
 static ef2_u32 string_length(const char *text, ef2_u32 limit)
 {
     ef2_u32 length = 0u;
@@ -407,9 +427,55 @@ static int mx_read_register(ef2_u8 command,ef2_u8 data[18])
 
 static ef2_u32 mx_csd_sector_count(const ef2_u8 csd[16])
 {
-    ef2_u32 structure=(csd[0]>>6)&3u;
-    if(structure==1u){ef2_u32 c=((ef2_u32)(csd[7]&0x3Fu)<<16)|((ef2_u32)csd[8]<<8)|csd[9];return (c+1u)*1024u;}
-    if(structure==0u){ef2_u32 bl=csd[5]&0x0Fu;ef2_u32 c=((ef2_u32)(csd[6]&3u)<<10)|((ef2_u32)csd[7]<<2)|((csd[8]>>6)&3u);ef2_u32 m=((ef2_u32)(csd[9]&3u)<<1)|((csd[10]>>7)&1u);ef2_u64 blocks=(ef2_u64)(c+1u)<<(m+2u);ef2_u64 bytes=blocks*((ef2_u64)1u<<bl);return (ef2_u32)(bytes/512u);}
+    ef2_u32 structure =
+        (csd[0] >> 6) & 3u;
+
+    if (structure == 1u) {
+        ef2_u32 c_size =
+            ((ef2_u32)(csd[7] & 0x3Fu) << 16) |
+            ((ef2_u32)csd[8] << 8) |
+            csd[9];
+
+        return (c_size + 1u) * 1024u;
+    }
+
+    if (structure == 0u) {
+        ef2_u32 read_block_shift =
+            csd[5] & 0x0Fu;
+        ef2_u32 c_size =
+            ((ef2_u32)(csd[6] & 0x03u) << 10) |
+            ((ef2_u32)csd[7] << 2) |
+            ((csd[8] >> 6) & 0x03u);
+        ef2_u32 c_size_mult =
+            ((ef2_u32)(csd[9] & 0x03u) << 1) |
+            ((csd[10] >> 7) & 1u);
+        ef2_u32 units = c_size + 1u;
+        ef2_s32 sector_shift =
+            (ef2_s32)c_size_mult +
+            2 +
+            (ef2_s32)read_block_shift -
+            9;
+
+        if (sector_shift >= 0) {
+            if (sector_shift >= 32 ||
+                units >
+                    (0xFFFFFFFFu >>
+                     (ef2_u32)sector_shift))
+                return 0u;
+
+            return
+                units <<
+                (ef2_u32)sector_shift;
+        }
+
+        if (sector_shift <= -32)
+            return 0u;
+
+        return
+            units >>
+            (ef2_u32)(-sector_shift);
+    }
+
     return 0u;
 }
 
@@ -506,11 +572,29 @@ int ef2_storage_backend_scan(ef2_storage_device_info *devices,ef2_u32 capacity,e
             {int v=mmce_get_u16(port,0x03u);info.current_card=v<0?0u:(ef2_u32)v;}
             {int v=mmce_get_u16(port,0x05u);info.current_channel=v<0?0u:(ef2_u32)v;}
             {int v=mmce_get_u16(port,0x02u);info.status=v<0?0u:(ef2_u32)v;}
-            devices[found++]=info;continue;
+            copy_device_info(&devices[found], &info);
+            ++found;
+            continue;
         }
         mc_result=mc_get_spec(port,&info);
-        if(mc_result==0){info.kind=EF2_STORAGE_KIND_PS2_MEMORY_CARD;info.capabilities=EF2_STORAGE_CAP_MEMORY_CARD|EF2_STORAGE_CAP_GEOMETRY;devices[found++]=info;continue;}
-        if(port==MX_PORT&&mx_initialize()==0){clear_bytes(&info,sizeof(info));info.kind=EF2_STORAGE_KIND_MX4SIO;info.capabilities=EF2_STORAGE_CAP_BLOCK_READ|EF2_STORAGE_CAP_BLOCK_WRITE;info.physical_port=MX_PORT;info.sector_size=512u;info.sector_count=g_mx_sector_count;info.product_id=g_mx_card_type;devices[found++]=info;}
+        if(mc_result==0){
+            info.kind=EF2_STORAGE_KIND_PS2_MEMORY_CARD;
+            info.capabilities=EF2_STORAGE_CAP_MEMORY_CARD|EF2_STORAGE_CAP_GEOMETRY;
+            copy_device_info(&devices[found], &info);
+            ++found;
+            continue;
+        }
+        if(port==MX_PORT&&mx_initialize()==0){
+            clear_bytes(&info,sizeof(info));
+            info.kind=EF2_STORAGE_KIND_MX4SIO;
+            info.capabilities=EF2_STORAGE_CAP_BLOCK_READ|EF2_STORAGE_CAP_BLOCK_WRITE;
+            info.physical_port=MX_PORT;
+            info.sector_size=512u;
+            info.sector_count=g_mx_sector_count;
+            info.product_id=g_mx_card_type;
+            copy_device_info(&devices[found], &info);
+            ++found;
+        }
     }
     *count=found;return 0;
 }
