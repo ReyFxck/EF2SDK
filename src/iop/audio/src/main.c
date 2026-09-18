@@ -37,7 +37,7 @@ static int g_play_thread = -1;
 static int g_initialized;
 static int g_started;
 static int g_paused;
-static ef2_u32 g_volume = EF2_AUDIO_VOLUME_MAX;
+static ef2_u32 g_volume = EF2AUDIO_MAX_VOLUME;
 static ef2_u32 g_queue_limit_frames = EF2AUDIO_RING_FRAMES;
 
 static void clear_bytes(void *ptr, ef2_u32 size)
