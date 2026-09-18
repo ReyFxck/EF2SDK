@@ -40,6 +40,7 @@ static ef2_heap_uptr align_ptr_down(ef2_heap_uptr value)
            ~((ef2_heap_uptr)EF2_HEAP_ALIGNMENT - (ef2_heap_uptr)1u);
 }
 
+__attribute__((noinline, optimize("O0")))
 static ef2_u32 multiply_u32(
     ef2_u32 left,
     ef2_u32 right)
