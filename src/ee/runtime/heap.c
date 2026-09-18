@@ -4,6 +4,8 @@
 #define EF2_HEAP_MAGIC_ALLOC 0xE2A110C1u
 #define EF2_HEAP_MAGIC_FREE  0xE2F4EE01u
 
+typedef unsigned long ef2_heap_uptr;
+
 typedef struct ef2_heap_block {
     ef2_u32 size;
     ef2_u32 magic;
@@ -22,9 +24,16 @@ static ef2_u32 align_up(ef2_u32 value)
            ~(EF2_HEAP_ALIGNMENT - 1u);
 }
 
-static ef2_u32 align_down(ef2_u32 value)
+static ef2_heap_uptr align_ptr_up(ef2_heap_uptr value)
 {
-    return value & ~(EF2_HEAP_ALIGNMENT - 1u);
+    return (value + (ef2_heap_uptr)EF2_HEAP_ALIGNMENT - 1ul) &
+           ~((ef2_heap_uptr)EF2_HEAP_ALIGNMENT - 1ul);
+}
+
+static ef2_heap_uptr align_ptr_down(ef2_heap_uptr value)
+{
+    return value &
+           ~((ef2_heap_uptr)EF2_HEAP_ALIGNMENT - 1ul);
 }
 
 static ef2_u32 header_size(void)
@@ -97,24 +106,32 @@ static void merge_with_next(ef2_heap_block *block)
 
 int ef2_heap_init(void *memory, ef2_u32 size)
 {
-    ef2_u32 start;
-    ef2_u32 end;
+    ef2_heap_uptr start;
+    ef2_heap_uptr end;
     ef2_u32 hsize;
     ef2_heap_block *block;
 
     if (memory == (void *)0 || size == 0u)
         return -1;
 
-    start = align_up((ef2_u32)memory);
-    end = align_down((ef2_u32)memory + size);
+    start = align_ptr_up((ef2_heap_uptr)memory);
+    end = align_ptr_down(
+        (ef2_heap_uptr)memory +
+        (ef2_heap_uptr)size);
     hsize = header_size();
 
     if (end <= start ||
-        end - start < hsize + EF2_HEAP_ALIGNMENT)
+        end - start <
+            (ef2_heap_uptr)(
+                hsize + EF2_HEAP_ALIGNMENT))
         return -2;
 
+    if (end - start > 0xFFFFFFFFul)
+        return -3;
+
     block = (ef2_heap_block *)start;
-    block->size = end - start - hsize;
+    block->size =
+        (ef2_u32)(end - start) - hsize;
     block->magic = EF2_HEAP_MAGIC_FREE;
     block->previous = (ef2_heap_block *)0;
     block->next = (ef2_heap_block *)0;
@@ -170,8 +187,8 @@ void ef2_free(void *ptr)
     if (!g_heap_ready || ptr == (void *)0)
         return;
 
-    if (((ef2_u32)ptr &
-         (EF2_HEAP_ALIGNMENT - 1u)) != 0u)
+    if (((ef2_heap_uptr)ptr &
+         ((ef2_heap_uptr)EF2_HEAP_ALIGNMENT - 1ul)) != 0ul)
         return;
 
     block = payload_block(ptr);
@@ -236,8 +253,8 @@ void *ef2_realloc(void *ptr, ef2_u32 size)
     }
 
     if (!g_heap_ready ||
-        ((ef2_u32)ptr &
-         (EF2_HEAP_ALIGNMENT - 1u)) != 0u)
+        ((ef2_heap_uptr)ptr &
+         ((ef2_heap_uptr)EF2_HEAP_ALIGNMENT - 1ul)) != 0ul)
         return (void *)0;
 
     block = payload_block(ptr);
