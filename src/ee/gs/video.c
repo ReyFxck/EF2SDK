@@ -14,11 +14,46 @@ static ef2_u32 ef2_video_gif_dma_available;
 static ef2_u32 ef2_video_gif_dma_fallbacks;
 static ef2_u32 ef2_video_texture_start;
 static ef2_u32 ef2_video_texture_cursor;
+static ef2_u32 ef2_video_framebuffer_bytes;
+static ef2_u32 ef2_video_framebuffer_base[2];
+static ef2_u32 ef2_video_display_buffer;
+static ef2_u32 ef2_video_draw_buffer;
+static ef2_u32 ef2_video_double_buffered;
+static ef2_u32 ef2_video_present_count;
+static ef2_u32 ef2_video_vsync_timeouts;
 static ef2_u32 ef2_video_clut_stage[256] EF2_ALIGN(16);
 
 static int ef2_video_submit_qwords(
     const ef2_gif_qword *packet,
     ef2_u32 count);
+
+static ef2_u16 ef2_video_frame_fbp(ef2_u32 index)
+{
+    return (ef2_u16)(
+        ef2_video_framebuffer_base[index & 1u] /
+        8192u);
+}
+
+static ef2_u16 ef2_video_draw_fbp(void)
+{
+    return ef2_video_frame_fbp(
+        ef2_video_draw_buffer);
+}
+
+static void ef2_video_program_display_buffer(
+    ef2_u32 index)
+{
+    *EF2_GS_REG_DISPFB2 =
+        ef2_gs_pack_dispfb(
+            ef2_video_frame_fbp(index),
+            (ef2_u8)(
+                ef2_video_width / 64u),
+            EF2_GS_PSMCT32,
+            0,
+            0);
+
+    ef2_gs_sync();
+}
 
 static int ef2_video_standard_valid(
     ef2_video_standard standard)
@@ -253,7 +288,7 @@ static int ef2_video_draw_two_vertex(
     ef2_gif_ad(
         &packet[1],
         ef2_gs_pack_frame(
-            0,
+            ef2_video_draw_fbp(),
             (ef2_u8)(ef2_video_width / 64u),
             EF2_GS_PSMCT32,
             0),
@@ -338,6 +373,105 @@ int ef2_video_get_transport_stats(
     stats->dma_fallbacks =
         ef2_video_gif_dma_fallbacks;
 
+    return 0;
+}
+
+int ef2_video_get_frame_stats(
+    ef2_video_frame_stats *stats)
+{
+    if (stats == (ef2_video_frame_stats *)0)
+        return -1;
+
+    stats->double_buffered =
+        ef2_video_double_buffered;
+    stats->display_buffer =
+        ef2_video_display_buffer;
+    stats->draw_buffer =
+        ef2_video_draw_buffer;
+    stats->presents =
+        ef2_video_present_count;
+    stats->vsync_timeouts =
+        ef2_video_vsync_timeouts;
+
+    return 0;
+}
+
+int ef2_video_set_double_buffering(ef2_u32 enabled)
+{
+    if (ef2_video_width == 0u ||
+        ef2_video_height == 0u)
+        return -1;
+
+    if (enabled != 0u) {
+        if (!ef2_video_double_buffered) {
+            ef2_video_double_buffered = 1u;
+            ef2_video_draw_buffer =
+                1u - ef2_video_display_buffer;
+        }
+    } else {
+        ef2_video_double_buffered = 0u;
+        ef2_video_draw_buffer =
+            ef2_video_display_buffer;
+    }
+
+    return 0;
+}
+
+int ef2_video_wait_vsync(ef2_u32 timeout)
+{
+    if (ef2_video_width == 0u ||
+        ef2_video_height == 0u)
+        return -1;
+
+    if (timeout == 0u)
+        timeout = 0x04000000u;
+
+    /*
+     * VSINT is write-one-to-clear. Clear a stale event first, then wait
+     * for the next vertical sync edge. This uses the GS CSR directly and
+     * does not require an EE interrupt handler.
+     */
+    *EF2_GS_REG_CSR = EF2_GS_CSR_VSINT;
+    ef2_gs_sync();
+
+    while (((*EF2_GS_REG_CSR) &
+            EF2_GS_CSR_VSINT) == 0u) {
+        if (--timeout == 0u) {
+            ++ef2_video_vsync_timeouts;
+            return -2;
+        }
+
+        __asm__ volatile("nop");
+    }
+
+    return 0;
+}
+
+int ef2_video_present(void)
+{
+    ef2_u32 old_display;
+    int result;
+
+    if (ef2_video_width == 0u ||
+        ef2_video_height == 0u)
+        return -1;
+
+    result = ef2_video_wait_vsync(0);
+    if (result < 0)
+        return result;
+
+    if (ef2_video_double_buffered) {
+        old_display = ef2_video_display_buffer;
+        ef2_video_display_buffer =
+            ef2_video_draw_buffer;
+
+        ef2_video_program_display_buffer(
+            ef2_video_display_buffer);
+
+        ef2_video_draw_buffer = old_display;
+    }
+
+    ++ef2_video_present_count;
     return 0;
 }
 
@@ -426,6 +560,7 @@ void ef2_video_reset_texture_allocator(void)
 
 ef2_u32 ef2_video_get_texture_vram_free(void)
 {
+    (void)ef2_video_framebuffer_bytes;
     if (ef2_video_texture_cursor >=
         EF2_GS_VRAM_BYTES)
         return 0;
@@ -1035,9 +1170,31 @@ int ef2_video_init(
         (ef2_u32)ef2_video_width *
         (ef2_u32)ef2_video_height * 4u;
 
-    ef2_video_texture_start =
+    framebuffer_bytes =
         ef2_align_up_u32(
             framebuffer_bytes,
+            EF2_GS_TEXTURE_PAGE_BYTES);
+
+    ef2_video_framebuffer_bytes =
+        framebuffer_bytes;
+    ef2_video_framebuffer_base[0] = 0u;
+    ef2_video_framebuffer_base[1] =
+        framebuffer_bytes;
+
+    ef2_video_display_buffer = 0u;
+    ef2_video_draw_buffer = 0u;
+    ef2_video_double_buffered = 0u;
+    ef2_video_present_count = 0u;
+    ef2_video_vsync_timeouts = 0u;
+
+    /*
+     * Reserve two page-aligned framebuffers even when compatibility
+     * single-buffer mode is active. This lets applications enable
+     * double buffering later without invalidating texture addresses.
+     */
+    ef2_video_texture_start =
+        ef2_align_up_u32(
+            framebuffer_bytes * 2u,
             EF2_GS_TEXTURE_PAGE_BYTES);
     ef2_video_texture_cursor =
         ef2_video_texture_start;
@@ -1065,14 +1222,8 @@ int ef2_video_init(
 
     ef2_video_set_background(0, 0, 0);
 
-    *EF2_GS_REG_DISPFB2 =
-        ef2_gs_pack_dispfb(
-            0,
-            (ef2_u8)(
-                ef2_video_width / 64u),
-            EF2_GS_PSMCT32,
-            0,
-            0);
+    ef2_video_program_display_buffer(
+        ef2_video_display_buffer);
 
     *EF2_GS_REG_DISPLAY2 =
         ef2_gs_pack_display(

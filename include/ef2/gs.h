@@ -13,6 +13,7 @@
 #define EF2_GS_REG_CSR      ((volatile ef2_u64 *)0x12001000u)
 #define EF2_GS_REG_IMR      ((volatile ef2_u64 *)0x12001010u)
 
+#define EF2_GS_CSR_VSINT ((ef2_u64)1u << 3)
 #define EF2_GS_CSR_RESET ((ef2_u64)1u << 9)
 
 #define EF2_GS_PSMCT32 0u

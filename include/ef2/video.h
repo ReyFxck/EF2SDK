@@ -29,6 +29,14 @@ typedef struct {
 } ef2_video_transport_stats;
 
 typedef struct {
+    ef2_u32 double_buffered;
+    ef2_u32 display_buffer;
+    ef2_u32 draw_buffer;
+    ef2_u32 presents;
+    ef2_u32 vsync_timeouts;
+} ef2_video_frame_stats;
+
+typedef struct {
     ef2_u16 vram_address;
     ef2_u16 clut_address;
     ef2_u16 width;
@@ -51,6 +59,15 @@ int ef2_video_get_size(
 
 int ef2_video_get_transport_stats(
     ef2_video_transport_stats *stats);
+
+int ef2_video_set_double_buffering(ef2_u32 enabled);
+
+int ef2_video_wait_vsync(ef2_u32 timeout);
+
+int ef2_video_present(void);
+
+int ef2_video_get_frame_stats(
+    ef2_video_frame_stats *stats);
 
 int ef2_video_clear(
     ef2_u8 r,

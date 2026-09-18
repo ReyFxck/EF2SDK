@@ -143,3 +143,29 @@ The validated screen simultaneously showed:
 This confirms the current emulator path from EE-side texture data through GIF
 DMA, host-to-local transfer, VRAM allocation, TEX0/UV sampling, alpha blending
 and both indexed CLUT formats.
+
+
+## Alpha.29 VSync and double buffering
+
+Alpha.29 adds an explicit frame-presentation API while preserving the
+single-buffer behavior of existing callers.
+
+EF2 Video now reserves two page-aligned 32-bit framebuffers during
+initialization. Textures are allocated after both buffers, so enabling double
+buffering later cannot invalidate existing VRAM layout assumptions.
+
+New calls:
+
+- `ef2_video_set_double_buffering()` selects compatibility single-buffer or
+  back-buffer rendering;
+- `ef2_video_wait_vsync()` waits for the next GS VSINT event with a bounded
+  timeout;
+- `ef2_video_present()` swaps display/draw buffers on VSync when double
+  buffering is enabled;
+- `ef2_video_get_frame_stats()` reports the active buffer indices, present
+  count and VSync timeout count.
+
+The boot diagnostic is rendered entirely into the hidden back buffer and is
+made visible only by `ef2_video_present()`. Therefore seeing the alpha.29
+diagnostic frame validates the first VSync-synchronized swap in addition to
+the existing GIF DMA and texture tests.

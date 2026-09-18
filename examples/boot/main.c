@@ -195,16 +195,25 @@ static void generate_melody_window(ef2_u32 source_frame)
 }
 
 
+static void show_color_and_present(
+    ef2_u8 r,
+    ef2_u8 g,
+    ef2_u8 b)
+{
+    (void)ef2_video_clear(r, g, b);
+    (void)ef2_video_present();
+}
+
 static void show_audio_state(
     ef2_s32 paused,
     ef2_s32 stopped)
 {
     if (stopped)
-        ef2_video_clear(112, 40, 48);
+        show_color_and_present(112, 40, 48);
     else if (paused)
-        ef2_video_clear(32, 96, 224);
+        show_color_and_present(32, 96, 224);
     else
-        ef2_video_clear(24, 176, 120);
+        show_color_and_present(24, 176, 120);
 }
 
 static int show_analog_state(
@@ -259,7 +268,7 @@ static int show_analog_state(
         ((ef2_u32)pad->right_x *
          brightness) / 255u;
 
-    ef2_video_clear(
+    show_color_and_present(
         (ef2_u8)red,
         (ef2_u8)green,
         (ef2_u8)blue);
@@ -271,22 +280,22 @@ static void show_init_failure(ef2_s32 status)
 {
     if (status <= -4000) {
         /* Red: RPC bound; SPU2/libsd initialization inside ef2audio failed. */
-        ef2_video_clear(220, 40, 48);
+        show_color_and_present(220, 40, 48);
     } else if (status <= -3000) {
         /* Orange: IRX stayed resident but its RPC SID could not be bound. */
-        ef2_video_clear(232, 112, 24);
+        show_color_and_present(232, 112, 24);
     } else if (status <= -2800) {
         /* Blue-violet: IRX _start returned non-resident (modres != 0). */
-        ef2_video_clear(88, 72, 216);
+        show_color_and_present(88, 72, 216);
     } else if (status <= -2000) {
         /* Purple: embedded IRX LoadModuleBuffer/patch path failed. */
-        ef2_video_clear(168, 48, 208);
+        show_color_and_present(168, 48, 208);
     } else if (status <= -1000) {
         /* Yellow: base SIFCMD/RPC initialization failed. */
-        ef2_video_clear(232, 200, 32);
+        show_color_and_present(232, 200, 32);
     } else {
         /* White: unexpected non-stage error. */
-        ef2_video_clear(224, 224, 224);
+        show_color_and_present(224, 224, 224);
     }
 }
 
@@ -322,7 +331,12 @@ int main(void)
             ++ef2_boot_counter;
     }
 
-    ef2_video_clear(32, 96, 224);
+    if (ef2_video_set_double_buffering(1u) != 0) {
+        for (;;)
+            ++ef2_boot_counter;
+    }
+
+    (void)ef2_video_clear(32, 96, 224);
 
     /* Initial primitive/DMA smoke: clipped rect + diagonal line. */
     (void)ef2_video_draw_rect(
@@ -448,6 +462,16 @@ int main(void)
 
     show_gif_transport_indicator();
 
+    /*
+     * Everything above was rendered into the hidden back buffer.
+     * Seeing the diagnostic frame therefore validates one VSync-synced
+     * framebuffer swap as well as the drawing operations themselves.
+     */
+    if (ef2_video_present() != 0) {
+        for (;;)
+            ++ef2_boot_counter;
+    }
+
     ef2_audio_status = ef2_audio_device_init();
     if (ef2_audio_status != 0) {
         show_init_failure(ef2_audio_status);
@@ -457,13 +481,13 @@ int main(void)
 
     if (ef2_audio_device_set_latency_ms(43u) != 0 ||
         ef2_audio_device_set_volume(audio_volume) != 0) {
-        ef2_video_clear(220, 40, 48);
+        show_color_and_present(220, 40, 48);
         for (;;)
             ++ef2_boot_counter;
     }
 
     if (ef2_pad_init() != 0) {
-        ef2_video_clear(176, 48, 208);
+        show_color_and_present(176, 48, 208);
         for (;;)
             ++ef2_boot_counter;
     }
@@ -474,7 +498,7 @@ int main(void)
             48000,
             2,
             EF2_AUDIO_RESAMPLE_LINEAR) != 0) {
-        ef2_video_clear(220, 40, 48);
+        show_color_and_present(220, 40, 48);
         for (;;)
             ++ef2_boot_counter;
     }
@@ -490,7 +514,7 @@ int main(void)
                 ef2_pad_is_held(
                     &pads[1],
                     EF2_PAD_CIRCLE)) {
-                ef2_video_clear(160, 64, 224);
+                show_color_and_present(160, 64, 224);
                 analog_visual_active = 1;
             }
 
@@ -637,7 +661,7 @@ int main(void)
             if (ef2_audio_device_submit_48k_stereo_s16(
                     g_melody_output,
                     produced) < 0) {
-                ef2_video_clear(220, 40, 48);
+                show_color_and_present(220, 40, 48);
                 for (;;)
                     ++ef2_boot_counter;
             }
@@ -649,7 +673,7 @@ int main(void)
             ef2_audio_status = ef2_audio_device_start();
 
             if (ef2_audio_status != 0) {
-                ef2_video_clear(220, 40, 48);
+                show_color_and_present(220, 40, 48);
                 for (;;)
                     ++ef2_boot_counter;
             }
