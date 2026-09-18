@@ -17,6 +17,7 @@
 #define EF2_GS_CSR_RESET ((ef2_u64)1u << 9)
 
 #define EF2_GS_PSMCT32 0u
+#define EF2_GS_PSMCT16 0x02u
 #define EF2_GS_PSMT8   0x13u
 #define EF2_GS_PSMT4   0x14u
 

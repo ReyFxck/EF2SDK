@@ -12,6 +12,7 @@
 static ef2_u16 ef2_video_width;
 static ef2_u16 ef2_video_height;
 static ef2_video_config ef2_video_active_config;
+static ef2_video_framebuffer_layout ef2_video_active_layout;
 static ef2_u32 ef2_video_gif_dma_available;
 static ef2_u32 ef2_video_gif_dma_fallbacks;
 static ef2_u32 ef2_video_texture_start;
@@ -49,9 +50,8 @@ static void ef2_video_program_display_buffer(
     *EF2_GS_REG_DISPFB2 =
         ef2_gs_pack_dispfb(
             ef2_video_frame_fbp(index),
-            (ef2_u8)(
-                ef2_video_width / 64u),
-            EF2_GS_PSMCT32,
+            ef2_video_active_layout.buffer_width,
+            ef2_video_active_layout.gs_psm,
             0,
             0);
 
@@ -63,6 +63,30 @@ static int ef2_video_standard_valid(
 {
     return standard == EF2_VIDEO_NTSC ||
            standard == EF2_VIDEO_PAL;
+}
+
+static int ef2_video_framebuffer_format_info(
+    ef2_video_framebuffer_format format,
+    ef2_u8 *psm,
+    ef2_u16 *page_height)
+{
+    if (psm == (ef2_u8 *)0 ||
+        page_height == (ef2_u16 *)0)
+        return -1;
+
+    if (format == EF2_VIDEO_FB_RGBA32) {
+        *psm = EF2_GS_PSMCT32;
+        *page_height = 32u;
+        return 0;
+    }
+
+    if (format == EF2_VIDEO_FB_RGB16) {
+        *psm = EF2_GS_PSMCT16;
+        *page_height = 64u;
+        return 0;
+    }
+
+    return -2;
 }
 
 int ef2_video_detect_standard(
@@ -315,8 +339,8 @@ static int ef2_video_draw_two_vertex(
         &packet[1],
         ef2_gs_pack_frame(
             ef2_video_draw_fbp(),
-            (ef2_u8)(ef2_video_width / 64u),
-            EF2_GS_PSMCT32,
+            ef2_video_active_layout.buffer_width,
+            ef2_video_active_layout.gs_psm,
             0),
         EF2_GS_ADDR_FRAME_1);
 
@@ -381,6 +405,19 @@ int ef2_video_get_config(
         return -1;
 
     *config = ef2_video_active_config;
+    return 0;
+}
+
+int ef2_video_get_framebuffer_layout(
+    ef2_video_framebuffer_layout *layout)
+{
+    if (layout ==
+            (ef2_video_framebuffer_layout *)0 ||
+        ef2_video_width == 0u ||
+        ef2_video_height == 0u)
+        return -1;
+
+    *layout = ef2_video_active_layout;
     return 0;
 }
 
@@ -1033,8 +1070,8 @@ int ef2_video_draw_texture_region(
         &packet[1],
         ef2_gs_pack_frame(
             ef2_video_draw_fbp(),
-            (ef2_u8)(ef2_video_width / 64u),
-            EF2_GS_PSMCT32,
+            ef2_video_active_layout.buffer_width,
+            ef2_video_active_layout.gs_psm,
             0),
         EF2_GS_ADDR_FRAME_1);
 
@@ -1199,8 +1236,8 @@ int ef2_video_draw_texture(
         &packet[1],
         ef2_gs_pack_frame(
             ef2_video_draw_fbp(),
-            (ef2_u8)(ef2_video_width / 64u),
-            EF2_GS_PSMCT32,
+            ef2_video_active_layout.buffer_width,
+            ef2_video_active_layout.gs_psm,
             0),
         EF2_GS_ADDR_FRAME_1);
 
@@ -1314,9 +1351,17 @@ int ef2_video_init(
     const ef2_video_config *config)
 {
     ef2_video_standard standard;
+    ef2_video_framebuffer_format format;
+    ef2_u16 default_height;
+    ef2_u16 page_height;
     ef2_u16 dx;
     ef2_u16 dy;
+    ef2_u32 horizontal_scale;
+    ef2_u32 vertical_scale;
+    ef2_u32 page_columns;
+    ef2_u32 page_rows;
     ef2_u32 framebuffer_bytes;
+    ef2_u8 framebuffer_psm;
 
     if (config ==
         (const ef2_video_config *)0)
@@ -1336,26 +1381,70 @@ int ef2_video_init(
         config->field_mode != EF2_VIDEO_FIELD)
         return -3;
 
+    format = config->framebuffer_format;
+    if (ef2_video_framebuffer_format_info(
+            format,
+            &framebuffer_psm,
+            &page_height) < 0)
+        return -4;
+
     if (standard == EF2_VIDEO_PAL) {
-        ef2_video_width = 640;
-        ef2_video_height = 512;
+        default_height = 512u;
         dx = 680;
         dy = 72;
     } else {
-        ef2_video_width = 640;
-        ef2_video_height = 448;
+        default_height = 448u;
         dx = 656;
         dy = 36;
     }
 
-    framebuffer_bytes =
-        (ef2_u32)ef2_video_width *
-        (ef2_u32)ef2_video_height * 4u;
+    ef2_video_width =
+        config->framebuffer_width != 0u
+            ? config->framebuffer_width
+            : 640u;
+    ef2_video_height =
+        config->framebuffer_height != 0u
+            ? config->framebuffer_height
+            : default_height;
 
+    if (ef2_video_width < 160u ||
+        ef2_video_width > 1024u ||
+        (ef2_video_width & 63u) != 0u ||
+        ef2_video_height == 0u ||
+        ef2_video_height > default_height ||
+        (2560u % ef2_video_width) != 0u ||
+        ((ef2_u32)default_height %
+         ef2_video_height) != 0u)
+        return -5;
+
+    horizontal_scale =
+        2560u / ef2_video_width;
+    vertical_scale =
+        (ef2_u32)default_height /
+        ef2_video_height;
+
+    if (horizontal_scale == 0u ||
+        horizontal_scale > 16u ||
+        vertical_scale == 0u ||
+        vertical_scale > 4u)
+        return -5;
+
+    page_columns =
+        ((ef2_u32)ef2_video_width + 63u) /
+        64u;
+    page_rows =
+        ((ef2_u32)ef2_video_height +
+         (ef2_u32)page_height - 1u) /
+        (ef2_u32)page_height;
     framebuffer_bytes =
-        ef2_align_up_u32(
-            framebuffer_bytes,
-            EF2_GS_TEXTURE_PAGE_BYTES);
+        page_columns *
+        page_rows *
+        EF2_GS_TEXTURE_PAGE_BYTES;
+
+    if (framebuffer_bytes == 0u ||
+        framebuffer_bytes * 2u >
+            EF2_GS_VRAM_BYTES)
+        return -6;
 
     ef2_video_framebuffer_bytes =
         framebuffer_bytes;
@@ -1368,9 +1457,36 @@ int ef2_video_init(
     ef2_video_double_buffered = 0u;
     ef2_video_present_count = 0u;
     ef2_video_vsync_timeouts = 0u;
+
     ef2_video_active_config.standard = standard;
-    ef2_video_active_config.interlaced = config->interlaced;
-    ef2_video_active_config.field_mode = config->field_mode;
+    ef2_video_active_config.interlaced =
+        config->interlaced;
+    ef2_video_active_config.field_mode =
+        config->field_mode;
+    ef2_video_active_config.framebuffer_format =
+        format;
+    ef2_video_active_config.framebuffer_width =
+        ef2_video_width;
+    ef2_video_active_config.framebuffer_height =
+        ef2_video_height;
+
+    ef2_video_active_layout.format = format;
+    ef2_video_active_layout.width =
+        ef2_video_width;
+    ef2_video_active_layout.height =
+        ef2_video_height;
+    ef2_video_active_layout.buffer_width =
+        (ef2_u8)(ef2_video_width / 64u);
+    ef2_video_active_layout.gs_psm =
+        framebuffer_psm;
+    ef2_video_active_layout.reserved = 0u;
+    ef2_video_active_layout.bytes_per_buffer =
+        framebuffer_bytes;
+    ef2_video_active_layout.buffer_base[0] =
+        ef2_video_framebuffer_base[0];
+    ef2_video_active_layout.buffer_base[1] =
+        ef2_video_framebuffer_base[1];
+
     ef2_profile_reset(
         &ef2_video_vsync_wait_ticks);
 
@@ -1380,10 +1496,10 @@ int ef2_video_init(
      * double buffering later without invalidating texture addresses.
      */
     ef2_video_texture_start =
-        ef2_align_up_u32(
-            framebuffer_bytes * 2u,
-            EF2_GS_TEXTURE_PAGE_BYTES);
+        framebuffer_bytes * 2u;
     ef2_video_texture_cursor =
+        ef2_video_texture_start;
+    ef2_video_active_layout.texture_start =
         ef2_video_texture_start;
 
     *EF2_GS_REG_PMODE = 0;
@@ -1416,17 +1532,15 @@ int ef2_video_init(
         ef2_gs_pack_display(
             dx,
             dy,
-            3,
-            0,
-            (ef2_u16)(
-                ef2_video_width * 4u - 1u),
-            (ef2_u16)(
-                ef2_video_height - 1u));
+            (ef2_u8)(horizontal_scale - 1u),
+            (ef2_u8)(vertical_scale - 1u),
+            2559u,
+            (ef2_u16)(default_height - 1u));
 
     ef2_gs_sync();
 
     if (ef2_video_clear(0, 0, 0) != 0)
-        return -4;
+        return -7;
 
     *EF2_GS_REG_PMODE =
         ef2_gs_pack_pmode(

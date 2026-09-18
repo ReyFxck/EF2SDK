@@ -19,11 +19,31 @@ typedef enum {
     EF2_VIDEO_FRAME = 1
 } ef2_video_field_mode;
 
+typedef enum {
+    EF2_VIDEO_FB_RGBA32 = 0,
+    EF2_VIDEO_FB_RGB16 = 1
+} ef2_video_framebuffer_format;
+
 typedef struct {
     ef2_video_standard standard;
     ef2_u8 interlaced;
     ef2_video_field_mode field_mode;
+    ef2_video_framebuffer_format framebuffer_format;
+    ef2_u16 framebuffer_width;
+    ef2_u16 framebuffer_height;
 } ef2_video_config;
+
+typedef struct {
+    ef2_video_framebuffer_format format;
+    ef2_u16 width;
+    ef2_u16 height;
+    ef2_u8 buffer_width;
+    ef2_u8 gs_psm;
+    ef2_u16 reserved;
+    ef2_u32 bytes_per_buffer;
+    ef2_u32 buffer_base[2];
+    ef2_u32 texture_start;
+} ef2_video_framebuffer_layout;
 
 typedef struct {
     ef2_u32 dma_available;
@@ -59,6 +79,9 @@ int ef2_video_detect_standard(ef2_video_standard *standard);
 int ef2_video_init(const ef2_video_config *config);
 
 int ef2_video_get_config(ef2_video_config *config);
+
+int ef2_video_get_framebuffer_layout(
+    ef2_video_framebuffer_layout *layout);
 
 int ef2_video_get_size(
     ef2_u16 *width,

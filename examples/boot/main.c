@@ -331,6 +331,9 @@ int main(int argc, char **argv)
         .standard = EF2_VIDEO_AUTO,
         .interlaced = 1,
         .field_mode = EF2_VIDEO_FIELD,
+        .framebuffer_format = EF2_VIDEO_FB_RGB16,
+        .framebuffer_width = 0,
+        .framebuffer_height = 0,
     };
     ef2_audio_rate_converter converter;
     ef2_u32 source_frame = 0;
@@ -359,7 +362,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.42 start argc=%d\n",
+        "alpha.43 start argc=%d\n",
         argc);
 
     {
@@ -503,11 +506,15 @@ int main(int argc, char **argv)
 
     {
         ef2_video_config active_video = {0};
+        ef2_video_framebuffer_layout layout = {0};
         ef2_u16 active_width = 0;
         ef2_u16 active_height = 0;
         char romver[15] = {0};
         int config_result =
             ef2_video_get_config(&active_video);
+        int layout_result =
+            ef2_video_get_framebuffer_layout(
+                &layout);
         int size_result =
             ef2_video_get_size(
                 &active_width,
@@ -528,6 +535,15 @@ int main(int argc, char **argv)
             (ef2_u32)active_height,
             romver_result,
             romver_result == 0 ? romver : "?");
+
+        (void)ef2_debug_printf(
+            "VIDEO",
+            "layout=%d format=%u psm=%u fb_bytes=%u tex_start=%u\n",
+            layout_result,
+            (ef2_u32)layout.format,
+            (ef2_u32)layout.gs_psm,
+            layout.bytes_per_buffer,
+            layout.texture_start);
     }
     if (ef2_video_status != 0) {
         for (;;)

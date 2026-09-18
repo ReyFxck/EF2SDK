@@ -222,3 +222,41 @@ instead of failing boot.
 never have to treat `EF2_VIDEO_AUTO` as the post-initialization mode. The boot
 smoke now requests AUTO and logs the resolved standard, framebuffer size and
 ROMVER string before running the existing validated drawing path.
+
+
+## Alpha.42 PAL/NTSC auto-mode validation
+
+Automatic ROMVER-based mode selection was validated in NetherSX2 on
+2026-09-18 with two BIOSes. The PAL BIOS resolved standard 3 and initialized a
+640x512 PAL field-mode framebuffer at 50 Hz. The NTSC BIOS resolved standard 2
+and initialized a 640x448 NTSC field-mode framebuffer at approximately 60 Hz.
+Both runs reported successful ROMVER reads and continued through GIF DMA,
+VSync, audio, pad and the deliberate crash-handler test.
+
+## Alpha.43 configurable framebuffer layouts
+
+Alpha.43 extends `ef2_video_config` with a public framebuffer format and
+optional framebuffer dimensions. Zero width/height preserve the region-native
+640x448 NTSC or 640x512 PAL layout.
+
+The first public framebuffer formats are:
+
+- `EF2_VIDEO_FB_RGBA32` -> GS PSMCT32;
+- `EF2_VIDEO_FB_RGB16` -> GS PSMCT16.
+
+Custom widths must be multiples of 64 and divide the 2560-sample analog TV
+scanout width exactly. Custom heights must divide the active NTSC/PAL height
+exactly. The resulting integer horizontal/vertical magnification must fit the
+GS DISPLAY register. This intentionally keeps the first layout API
+deterministic instead of silently stretching unsupported dimensions.
+
+Framebuffer VRAM reservation now follows GS page geometry rather than a raw
+width*height byte estimate: PSMCT32 uses 64x32 pages and PSMCT16 uses 64x64
+pages. `ef2_video_get_framebuffer_layout()` exposes the resolved format,
+dimensions, GS PSM, per-buffer byte size, both buffer bases and the texture
+heap start.
+
+The Alpha.43 smoke selects RGB16 with region-native dimensions so the complete
+existing primitive, RGBA32 texture, PSMT8, PSMT4, alpha, GIF DMA and crash
+diagnostics exercise the alternate framebuffer format without changing their
+screen positions.
