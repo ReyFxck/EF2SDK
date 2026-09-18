@@ -91,7 +91,9 @@
 
 ## P5 - Runtime and ports
 
-- [ ] allocator
+- [x] initial freestanding 16-byte-aligned heap allocator
+- [x] malloc/free/calloc/realloc equivalents with coalescing
+- [x] host-side heap regression tests
 - [ ] libc strategy
 - [ ] C++ runtime strategy
 - [ ] zlib

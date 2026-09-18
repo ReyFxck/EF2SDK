@@ -1,3 +1,4 @@
+#include <ef2/heap.h>
 #include <ef2/kernel.h>
 #include <ef2/runtime.h>
 
@@ -133,6 +134,10 @@ EF2_NORETURN void ef2_runtime_exit(ef2_s32 status)
 
 EF2_NORETURN void ef2_runtime_run_main(void)
 {
-    ef2_s32 status = main(g_argc, g_argv);
+    ef2_s32 status;
+
+    (void)ef2_heap_init_default();
+
+    status = main(g_argc, g_argv);
     ef2_runtime_exit(status);
 }

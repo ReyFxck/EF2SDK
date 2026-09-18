@@ -10,6 +10,8 @@ extern "C" {
 
 void ef2_kernel_set_gs_crt(ef2_s16 interlace, ef2_s16 mode, ef2_s16 field_mode);
 void ef2_kernel_exit(ef2_s32 status);
+void ef2_kernel_setup_heap(void *start, ef2_s32 size);
+void *ef2_kernel_end_of_heap(void);
 
 ef2_s32 ef2_kernel_add_dmac_handler(
     ef2_s32 channel,

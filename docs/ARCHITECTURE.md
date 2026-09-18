@@ -71,3 +71,20 @@ Returning from `main` now calls the EE kernel KExit syscall through
 `ef2_runtime_exit()` instead of entering the old permanent halt loop.
 EF2SDK deliberately does not make SetupThread mandatory yet; the startup path
 that has already been validated remains otherwise unchanged.
+
+
+## Heap
+
+The default EE runtime initializes an EF2-owned heap after
+`__ef2_image_end`. The EE kernel `SetupHeap(start, -1)` and
+`EndOfHeap()` syscalls are used only to establish the safe process-memory
+range; allocation metadata and policy are implemented by EF2SDK.
+
+The first allocator is a 16-byte-aligned first-fit free list with block
+splitting, adjacent-block coalescing, calloc overflow checks and in-place
+realloc growth when the following block is free. It intentionally exposes
+`ef2_malloc`/`ef2_free` rather than overriding libc symbols yet.
+
+The core allocator can also be initialized over an arbitrary caller-owned
+buffer, which lets CI regression-test allocation/coalescing behavior on the
+host without emulating EE kernel services.

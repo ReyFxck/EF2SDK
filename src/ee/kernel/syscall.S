@@ -17,6 +17,8 @@
 
     EF2_SYSCALL ef2_kernel_set_gs_crt, 2
     EF2_SYSCALL ef2_kernel_exit, 4
+    EF2_SYSCALL ef2_kernel_setup_heap, 0x3d
+    EF2_SYSCALL ef2_kernel_end_of_heap, 0x3e
     EF2_SYSCALL ef2_kernel_add_dmac_handler, 0x12
     EF2_SYSCALL ef2_kernel_enable_dmac, 0x16
     EF2_SYSCALL ef2_kernel_flush_cache, 0x64
