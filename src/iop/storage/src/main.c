@@ -34,7 +34,9 @@ static void *rpc_handler(int function,void *buffer,int length)
         case EF2_STORAGE_RPC_READ_SECTOR:
             if(length<(int)sizeof(*request)||device==0){result=-1;break;}
             result=ef2_storage_backend_read_sector(device,request->sector,g_reply.data);
-            if(result==0)g_reply.data_size=EF2_STORAGE_IO_CHUNK;break;
+            if(result==0)
+                g_reply.data_size=EF2_STORAGE_IO_CHUNK;
+            break;
         case EF2_STORAGE_RPC_WRITE_SECTOR:
             if(length<(int)sizeof(*request)||device==0||request->data_size!=EF2_STORAGE_IO_CHUNK){result=-1;break;}
             result=ef2_storage_backend_write_sector(device,request->sector,request->data);break;
