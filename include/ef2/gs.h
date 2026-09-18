@@ -25,6 +25,7 @@
 #define EF2_GS_ADDR_TEST_1     0x47u
 #define EF2_GS_ADDR_FRAME_1    0x4Cu
 
+#define EF2_GS_PRIM_LINE   0x01u
 #define EF2_GS_PRIM_SPRITE 0x06u
 
 static inline ef2_u64 ef2_gs_pack_bgcolor(ef2_u8 r, ef2_u8 g, ef2_u8 b)

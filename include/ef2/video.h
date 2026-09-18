@@ -23,9 +23,47 @@ typedef struct {
     ef2_video_field_mode field_mode;
 } ef2_video_config;
 
+typedef struct {
+    ef2_u32 dma_available;
+    ef2_u32 dma_fallbacks;
+} ef2_video_transport_stats;
+
 int ef2_video_init(const ef2_video_config *config);
-int ef2_video_clear(ef2_u8 r, ef2_u8 g, ef2_u8 b);
-void ef2_video_set_background(ef2_u8 r, ef2_u8 g, ef2_u8 b);
+
+int ef2_video_get_size(
+    ef2_u16 *width,
+    ef2_u16 *height);
+
+int ef2_video_get_transport_stats(
+    ef2_video_transport_stats *stats);
+
+int ef2_video_clear(
+    ef2_u8 r,
+    ef2_u8 g,
+    ef2_u8 b);
+
+int ef2_video_draw_rect(
+    ef2_s32 x,
+    ef2_s32 y,
+    ef2_s32 width,
+    ef2_s32 height,
+    ef2_u8 r,
+    ef2_u8 g,
+    ef2_u8 b);
+
+int ef2_video_draw_line(
+    ef2_s32 x0,
+    ef2_s32 y0,
+    ef2_s32 x1,
+    ef2_s32 y1,
+    ef2_u8 r,
+    ef2_u8 g,
+    ef2_u8 b);
+
+void ef2_video_set_background(
+    ef2_u8 r,
+    ef2_u8 g,
+    ef2_u8 b);
 
 #ifdef __cplusplus
 }

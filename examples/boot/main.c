@@ -198,6 +198,25 @@ int main(void)
 
     ef2_video_clear(32, 96, 224);
 
+    /* Initial primitive/DMA smoke: clipped rect + diagonal line. */
+    (void)ef2_video_draw_rect(
+        16,
+        16,
+        96,
+        48,
+        232,
+        200,
+        32);
+
+    (void)ef2_video_draw_line(
+        16,
+        72,
+        112,
+        16,
+        224,
+        224,
+        224);
+
     ef2_audio_status = ef2_audio_device_init();
     if (ef2_audio_status != 0) {
         show_init_failure(ef2_audio_status);

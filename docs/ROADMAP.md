@@ -38,7 +38,8 @@
 - [ ] public framebuffer allocation/configuration API
 - [x] initial GIF DMA normal-mode path with FIFO fallback
 - [ ] validate GIF DMA transport on emulator and real hardware
-- [ ] primitive API beyond the smoke test
+- [x] initial solid rectangle/sprite and line primitive API
+- [ ] textured sprite and VRAM upload API
 
 ## P3 - Input and IOP
 

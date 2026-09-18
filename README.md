@@ -16,7 +16,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - initial GS privileged-register definitions;
 - explicit NTSC/PAL video-mode selection;
 - a direct GIF FIFO path for small GS packets, without gsKit or PS2SDK libraries;
-- initial framebuffer scanout and a full-screen sprite clear smoke test;
+- initial framebuffer scanout, solid rectangle/sprite and line drawing primitives;
 - a reusable `libef2.a` static library;
 - a source-rate-agnostic EF2Audio core with fixed-point resampling and S16 mixing;
 - a minimal independent EE SIFCMD/RPC client and in-memory IRX loader;
@@ -40,7 +40,9 @@ For now, CI borrows the existing R5900 compiler/binutils only as a bootstrap too
 
 CI resolves the official ps2dev bootstrap bundle and pins a PS2SDK source revision for IOP build rules/import headers. The EE ELF remains freestanding and does not link PS2SDK startup objects or libraries.
 
-The long-term goal is to reduce external bootstrap dependencies as EF2SDK matures.\n\nThe PS2SDK source tree is still used at **build time** for IOP IRX rules/import headers, but EF2Audio no longer imports or loads the console ROM's `LIBSD` service. The IOP service owns its SPU2 register setup, DMA channel and DMA interrupt directly. The EE ELF remains freestanding and does not link PS2SDK libraries, and EF2Audio does not use `audsrv`.
+The long-term goal is to reduce external bootstrap dependencies as EF2SDK matures.
+
+The PS2SDK source tree is still used at **build time** for IOP IRX rules/import headers, but EF2Audio no longer imports or loads the console ROM's `LIBSD` service. The IOP service owns its SPU2 register setup, DMA channel and DMA interrupt directly. The EE ELF remains freestanding and does not link PS2SDK libraries, and EF2Audio does not use `audsrv`.
 
 ## Build
 
@@ -62,7 +64,7 @@ build/ef2pad.irx
 
 ## Smoke test
 
-The current example selects NTSC interlaced field mode, resets the GS and GIF, programs the CRT through the EE kernel syscall, configures `DISPFB2`/`DISPLAY2`, then draws a full-screen sprite into a 32-bit framebuffer using a small packed GIF packet.
+The current example selects NTSC interlaced field mode, resets the GS and GIF, programs the CRT through the EE kernel syscall, configures `DISPFB2`/`DISPLAY2`, then draws a 32-bit framebuffer through packed GIF packets. It now exercises the GIF DMA path with a clipped solid rectangle and line before entering the audio/input smoke loop.
 
 A successful current boot reaches a teal-green framebuffer and plays the generated melody. This validates the framebuffer/GIF path, freestanding EE SIFRPC client, embedded IRX loading, EF2Audio RPC/ring buffering and SPU2 streaming in NetherSX2.
 
