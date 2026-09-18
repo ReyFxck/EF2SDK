@@ -21,6 +21,7 @@ static ef2_u32 ef2_video_draw_buffer;
 static ef2_u32 ef2_video_double_buffered;
 static ef2_u32 ef2_video_present_count;
 static ef2_u32 ef2_video_vsync_timeouts;
+static ef2_profile_counter ef2_video_vsync_wait_ticks;
 static ef2_u32 ef2_video_clut_stage[256] EF2_ALIGN(16);
 
 static int ef2_video_submit_qwords(
@@ -392,6 +393,8 @@ int ef2_video_get_frame_stats(
         ef2_video_present_count;
     stats->vsync_timeouts =
         ef2_video_vsync_timeouts;
+    stats->vsync_wait_ticks =
+        ef2_video_vsync_wait_ticks;
 
     return 0;
 }
@@ -419,9 +422,13 @@ int ef2_video_set_double_buffering(ef2_u32 enabled)
 
 int ef2_video_wait_vsync(ef2_u32 timeout)
 {
+    ef2_u32 profile_start;
+
     if (ef2_video_width == 0u ||
         ef2_video_height == 0u)
         return -1;
+
+    profile_start = ef2_profile_begin();
 
     if (timeout == 0u)
         timeout = 0x04000000u;
@@ -437,6 +444,9 @@ int ef2_video_wait_vsync(ef2_u32 timeout)
     while (((*EF2_GS_REG_CSR) &
             EF2_GS_CSR_VSINT) == 0u) {
         if (--timeout == 0u) {
+            (void)ef2_profile_end(
+                &ef2_video_vsync_wait_ticks,
+                profile_start);
             ++ef2_video_vsync_timeouts;
             return -2;
         }
@@ -444,6 +454,9 @@ int ef2_video_wait_vsync(ef2_u32 timeout)
         __asm__ volatile("nop");
     }
 
+    (void)ef2_profile_end(
+        &ef2_video_vsync_wait_ticks,
+        profile_start);
     return 0;
 }
 
@@ -1311,6 +1324,8 @@ int ef2_video_init(
     ef2_video_double_buffered = 0u;
     ef2_video_present_count = 0u;
     ef2_video_vsync_timeouts = 0u;
+    ef2_profile_reset(
+        &ef2_video_vsync_wait_ticks);
 
     /*
      * Reserve two page-aligned framebuffers even when compatibility

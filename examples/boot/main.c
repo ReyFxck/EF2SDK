@@ -2,6 +2,7 @@
 #include <ef2/base.h>
 #include <ef2/crash.h>
 #include <ef2/debug.h>
+#include <ef2/gif.h>
 #include <ef2/interrupt.h>
 #include <ef2/pad.h>
 #include <ef2/timer.h>
@@ -356,7 +357,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.39 start argc=%d\n",
+        "alpha.40 start argc=%d\n",
         argc);
 
     {
@@ -451,6 +452,8 @@ int main(int argc, char **argv)
         for (;;)
             ++ef2_boot_counter;
     }
+
+    ef2_gif_dma_reset_stats();
 
     {
         int double_buffer_result =
@@ -615,6 +618,33 @@ int main(int argc, char **argv)
     if (ef2_video_present() != 0) {
         for (;;)
             ++ef2_boot_counter;
+    }
+
+    {
+        ef2_gif_dma_stats dma_stats;
+        ef2_video_frame_stats frame_stats;
+
+        if (ef2_gif_dma_get_stats(&dma_stats) == 0) {
+            (void)ef2_debug_printf(
+                "PROFILE",
+                "gif submit=%u complete=%u qwords=%u timeouts=%u xfer_last=%u xfer_max=%u\n",
+                dma_stats.submissions,
+                dma_stats.completions,
+                dma_stats.qwords_submitted,
+                dma_stats.timeouts,
+                dma_stats.transfer_ticks.last_ticks,
+                dma_stats.transfer_ticks.max_ticks);
+        }
+
+        if (ef2_video_get_frame_stats(&frame_stats) == 0) {
+            (void)ef2_debug_printf(
+                "PROFILE",
+                "vsync samples=%u last=%u max=%u timeouts=%u\n",
+                frame_stats.vsync_wait_ticks.samples,
+                frame_stats.vsync_wait_ticks.last_ticks,
+                frame_stats.vsync_wait_ticks.max_ticks,
+                frame_stats.vsync_timeouts);
+        }
     }
 
     ef2_audio_status = ef2_audio_device_init();

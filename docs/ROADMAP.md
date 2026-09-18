@@ -119,7 +119,7 @@
 - [x] initial EE crash vector, register frame and on-screen diagnostics
 - [x] validate crash handler in NetherSX2 (2026-09-18)
 - [ ] validate crash handler on real hardware
-- [ ] lightweight profiler and GS/DMA timing counters
+- [x] initial lightweight profiler and GIF DMA/VSync timing counters
 - [ ] package/port workflow for modern third-party libraries
 - [ ] compatibility adapters for selected legacy PS2 homebrew APIs
 

@@ -16,6 +16,9 @@
 #define EF2_GIF_DMA_DEFAULT_TIMEOUT 0x01000000u
 
 static ef2_u32 g_gif_dma_initialized;
+static ef2_u32 g_gif_dma_active;
+static ef2_u32 g_gif_dma_active_start;
+static ef2_gif_dma_stats g_gif_dma_stats;
 
 static void ef2_dma_sync(void)
 {
@@ -27,19 +30,69 @@ static void ef2_dma_sync(void)
         : "memory");
 }
 
+void ef2_gif_dma_reset_stats(void)
+{
+    g_gif_dma_stats.submissions = 0u;
+    g_gif_dma_stats.completions = 0u;
+    g_gif_dma_stats.qwords_submitted = 0u;
+    g_gif_dma_stats.wait_calls = 0u;
+    g_gif_dma_stats.timeouts = 0u;
+    ef2_profile_reset(&g_gif_dma_stats.transfer_ticks);
+    ef2_profile_reset(&g_gif_dma_stats.wait_ticks);
+
+    if (g_gif_dma_active)
+        g_gif_dma_active_start = ef2_cpu_count();
+}
+
+int ef2_gif_dma_get_stats(ef2_gif_dma_stats *stats)
+{
+    if (stats == (ef2_gif_dma_stats *)0)
+        return -1;
+
+    *stats = g_gif_dma_stats;
+    return 0;
+}
+
 int ef2_gif_dma_wait(ef2_u32 timeout)
 {
+    ef2_u32 wait_start = ef2_cpu_count();
+    ef2_u32 now;
+
+    ++g_gif_dma_stats.wait_calls;
+
     if (timeout == 0u)
         timeout = EF2_GIF_DMA_DEFAULT_TIMEOUT;
 
     while ((EF2_D2_CHCR & EF2_DMAC_STR) != 0u) {
-        if (--timeout == 0u)
+        if (--timeout == 0u) {
+            now = ef2_cpu_count();
+            ef2_profile_record(
+                &g_gif_dma_stats.wait_ticks,
+                ef2_cpu_count_elapsed(wait_start, now));
+            ++g_gif_dma_stats.timeouts;
             return -1;
+        }
 
         __asm__ volatile("nop");
     }
 
     ef2_dma_sync();
+    now = ef2_cpu_count();
+
+    ef2_profile_record(
+        &g_gif_dma_stats.wait_ticks,
+        ef2_cpu_count_elapsed(wait_start, now));
+
+    if (g_gif_dma_active) {
+        ef2_profile_record(
+            &g_gif_dma_stats.transfer_ticks,
+            ef2_cpu_count_elapsed(
+                g_gif_dma_active_start,
+                now));
+        ++g_gif_dma_stats.completions;
+        g_gif_dma_active = 0u;
+    }
+
     return 0;
 }
 
@@ -105,6 +158,11 @@ int ef2_gif_dma_submit_qwords(
     EF2_D2_MADR = address & 0x7FFFFFFFu;
 
     ef2_dma_sync();
+
+    g_gif_dma_active_start = ef2_cpu_count();
+    g_gif_dma_active = 1u;
+    ++g_gif_dma_stats.submissions;
+    g_gif_dma_stats.qwords_submitted += count;
 
     /* DIR=1 (memory -> GIF), MOD=0 (normal), STR=1. */
     EF2_D2_CHCR = EF2_DMAC_GIF_NORMAL;

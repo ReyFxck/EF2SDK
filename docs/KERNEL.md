@@ -48,3 +48,19 @@ acknowledges the event inside the handler and tears the test down again.
 A successful boot log contains an `[EF2][TIMER]` line with a nonzero
 `irq_hits` value. This checks the direct timer MMIO path, handler registration,
 INTC enable/disable and global interrupt save/restore together.
+
+## Alpha.40 lightweight profiling
+
+Alpha.40 builds on COP0 Count with a small reusable `ef2_profile_counter`.
+Callers can reset a counter, record elapsed tick samples, or use the inline
+begin/end helpers. The counter keeps sample count, last/min/max ticks and a
+64-bit accumulated tick total without requiring floating-point math.
+
+The GIF DMA transport now records submissions, completed transfers, submitted
+QWC, wait calls/timeouts, DMA completion latency and wait latency. EF2 Video
+also records every bounded GS VSync wait in `ef2_video_frame_stats`.
+
+The boot smoke resets GIF statistics after video initialization, renders the
+existing validated diagnostic frame unchanged, presents it once, then emits
+`[EF2][PROFILE]` lines for GIF DMA and VSync. These counters are diagnostic
+telemetry only; they do not change transport fallback or rendering behavior.

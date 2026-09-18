@@ -2,6 +2,7 @@
 #define EF2_VIDEO_H
 
 #include <ef2/base.h>
+#include <ef2/profile.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -34,6 +35,7 @@ typedef struct {
     ef2_u32 draw_buffer;
     ef2_u32 presents;
     ef2_u32 vsync_timeouts;
+    ef2_profile_counter vsync_wait_ticks;
 } ef2_video_frame_stats;
 
 typedef struct {

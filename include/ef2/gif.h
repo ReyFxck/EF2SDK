@@ -2,6 +2,7 @@
 #define EF2_GIF_H
 
 #include <ef2/base.h>
+#include <ef2/profile.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -53,6 +54,19 @@ int ef2_gif_dma_submit_qwords(
 int ef2_gif_dma_send_qwords(
     const ef2_gif_qword *packet,
     ef2_u32 count);
+
+typedef struct {
+    ef2_u32 submissions;
+    ef2_u32 completions;
+    ef2_u32 qwords_submitted;
+    ef2_u32 wait_calls;
+    ef2_u32 timeouts;
+    ef2_profile_counter transfer_ticks;
+    ef2_profile_counter wait_ticks;
+} ef2_gif_dma_stats;
+
+void ef2_gif_dma_reset_stats(void);
+int ef2_gif_dma_get_stats(ef2_gif_dma_stats *stats);
 
 #ifdef __cplusplus
 }
