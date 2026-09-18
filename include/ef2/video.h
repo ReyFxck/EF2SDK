@@ -30,14 +30,17 @@ typedef struct {
 
 typedef struct {
     ef2_u16 vram_address;
+    ef2_u16 clut_address;
     ef2_u16 width;
     ef2_u16 height;
     ef2_u8 buffer_width;
     ef2_u8 psm;
+    ef2_u8 clut_psm;
     ef2_u8 width_log2;
     ef2_u8 height_log2;
     ef2_u8 valid;
-    ef2_u8 reserved[3];
+    ef2_u8 indexed;
+    ef2_u8 reserved[2];
 } ef2_video_texture;
 
 int ef2_video_init(const ef2_video_config *config);
@@ -79,6 +82,13 @@ ef2_u32 ef2_video_get_texture_vram_free(void);
 int ef2_video_upload_rgba32(
     ef2_video_texture *texture,
     const ef2_u32 *pixels,
+    ef2_u16 width,
+    ef2_u16 height);
+
+int ef2_video_upload_indexed8(
+    ef2_video_texture *texture,
+    const ef2_u8 *indices,
+    const ef2_u32 *palette_rgba32,
     ef2_u16 width,
     ef2_u16 height);
 

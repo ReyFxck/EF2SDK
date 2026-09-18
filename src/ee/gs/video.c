@@ -14,6 +14,7 @@ static ef2_u32 ef2_video_gif_dma_available;
 static ef2_u32 ef2_video_gif_dma_fallbacks;
 static ef2_u32 ef2_video_texture_start;
 static ef2_u32 ef2_video_texture_cursor;
+static ef2_u32 ef2_video_clut_stage[256] EF2_ALIGN(16);
 
 static int ef2_video_standard_valid(
     ef2_video_standard standard)
@@ -63,6 +64,128 @@ static ef2_s32 ef2_clamp_s32(
     if (value > high)
         return high;
     return value;
+}
+
+static int ef2_video_upload_image(
+    ef2_u16 destination,
+    ef2_u8 destination_width,
+    ef2_u8 psm,
+    ef2_u16 width,
+    ef2_u16 height,
+    const void *pixels,
+    ef2_u32 transfer_bytes)
+{
+    ef2_gif_qword setup[5] EF2_ALIGN(16);
+    ef2_gif_qword image_tag EF2_ALIGN(16);
+    ef2_u32 transfer_qwords;
+    ef2_u32 remaining;
+    ef2_u32 offset_qwords = 0;
+
+    if (pixels == (const void *)0 ||
+        transfer_bytes == 0u ||
+        (transfer_bytes & 0x0Fu) != 0u)
+        return -1;
+
+    setup[0].lo =
+        ef2_gif_pack_tag(
+            4, 1, 0, 0,
+            EF2_GIF_FLG_PACKED, 1);
+    setup[0].hi = EF2_GIF_REG_AD;
+
+    ef2_gif_ad(
+        &setup[1],
+        ef2_gs_pack_bitbltbuf(
+            destination,
+            destination_width,
+            psm),
+        EF2_GS_ADDR_BITBLTBUF);
+
+    ef2_gif_ad(
+        &setup[2],
+        ef2_gs_pack_trxpos(0, 0),
+        EF2_GS_ADDR_TRXPOS);
+
+    ef2_gif_ad(
+        &setup[3],
+        ef2_gs_pack_trxreg(width, height),
+        EF2_GS_ADDR_TRXREG);
+
+    ef2_gif_ad(
+        &setup[4],
+        0,
+        EF2_GS_ADDR_TRXDIR);
+
+    if (ef2_video_submit_qwords(setup, 5) < 0)
+        return -2;
+
+    transfer_qwords = transfer_bytes >> 4;
+    remaining = transfer_qwords;
+
+    while (remaining != 0u) {
+        ef2_u32 chunk =
+            remaining > EF2_GIF_IMAGE_MAX_QWORDS
+                ? EF2_GIF_IMAGE_MAX_QWORDS
+                : remaining;
+
+        image_tag.lo =
+            ef2_gif_pack_tag(
+                (ef2_u16)chunk,
+                1,
+                0,
+                0,
+                EF2_GIF_FLG_IMAGE,
+                0);
+        image_tag.hi = 0;
+
+        if (ef2_video_submit_qwords(
+                &image_tag, 1) < 0)
+            return -3;
+
+        if (ef2_video_submit_qwords(
+                (const ef2_gif_qword *)pixels +
+                    offset_qwords,
+                chunk) < 0)
+            return -4;
+
+        offset_qwords += chunk;
+        remaining -= chunk;
+    }
+
+    return 0;
+}
+
+static int ef2_video_flush_texture_cache(void)
+{
+    ef2_gif_qword flush[2] EF2_ALIGN(16);
+
+    flush[0].lo =
+        ef2_gif_pack_tag(
+            1, 1, 0, 0,
+            EF2_GIF_FLG_PACKED, 1);
+    flush[0].hi = EF2_GIF_REG_AD;
+
+    ef2_gif_ad(
+        &flush[1],
+        0,
+        EF2_GS_ADDR_TEXFLUSH);
+
+    return ef2_video_submit_qwords(flush, 2);
+}
+
+static void ef2_video_prepare_csm1_clut(
+    const ef2_u32 *palette)
+{
+    ef2_u32 i;
+
+    for (i = 0; i < 256u; ++i) {
+        ef2_u32 destination =
+            (i & ~0x18u) |
+            ((i & 0x08u) << 1) |
+            ((i & 0x10u) >> 1);
+
+        ef2_video_clut_stage[destination] =
+            palette[i];
+    }
 }
 
 static int ef2_video_submit_qwords(
@@ -313,16 +436,10 @@ int ef2_video_upload_rgba32(
     ef2_u16 width,
     ef2_u16 height)
 {
-    ef2_gif_qword setup[5] EF2_ALIGN(16);
-    ef2_gif_qword image_tag EF2_ALIGN(16);
-    ef2_gif_qword flush[2] EF2_ALIGN(16);
     ef2_u32 padded_width;
     ef2_u32 padded_height;
     ef2_u32 allocation_bytes;
     ef2_u32 transfer_bytes;
-    ef2_u32 transfer_qwords;
-    ef2_u32 remaining;
-    ef2_u32 offset_qwords = 0;
     ef2_u32 cursor;
     ef2_u8 tbw;
 
@@ -366,97 +483,33 @@ int ef2_video_upload_rgba32(
 
     texture->vram_address =
         (ef2_u16)(cursor / 256u);
+    texture->clut_address = 0;
     texture->width = width;
     texture->height = height;
     texture->buffer_width = tbw;
     texture->psm = EF2_GS_PSMCT32;
+    texture->clut_psm = 0;
     texture->width_log2 =
         ef2_log2_ceil_u16(width);
     texture->height_log2 =
         ef2_log2_ceil_u16(height);
     texture->valid = 0;
+    texture->indexed = 0;
     texture->reserved[0] = 0;
     texture->reserved[1] = 0;
-    texture->reserved[2] = 0;
 
-    setup[0].lo =
-        ef2_gif_pack_tag(
-            4, 1, 0, 0,
-            EF2_GIF_FLG_PACKED, 1);
-    setup[0].hi = EF2_GIF_REG_AD;
-
-    ef2_gif_ad(
-        &setup[1],
-        ef2_gs_pack_bitbltbuf(
+    if (ef2_video_upload_image(
             texture->vram_address,
             texture->buffer_width,
-            EF2_GS_PSMCT32),
-        EF2_GS_ADDR_BITBLTBUF);
-
-    ef2_gif_ad(
-        &setup[2],
-        ef2_gs_pack_trxpos(0, 0),
-        EF2_GS_ADDR_TRXPOS);
-
-    ef2_gif_ad(
-        &setup[3],
-        ef2_gs_pack_trxreg(width, height),
-        EF2_GS_ADDR_TRXREG);
-
-    ef2_gif_ad(
-        &setup[4],
-        0,
-        EF2_GS_ADDR_TRXDIR);
-
-    if (ef2_video_submit_qwords(setup, 5) < 0)
+            EF2_GS_PSMCT32,
+            width,
+            height,
+            pixels,
+            transfer_bytes) < 0)
         return -5;
 
-    transfer_qwords = transfer_bytes >> 4;
-    remaining = transfer_qwords;
-
-    while (remaining != 0u) {
-        ef2_u32 chunk =
-            remaining > EF2_GIF_IMAGE_MAX_QWORDS
-                ? EF2_GIF_IMAGE_MAX_QWORDS
-                : remaining;
-
-        image_tag.lo =
-            ef2_gif_pack_tag(
-                (ef2_u16)chunk,
-                1,
-                0,
-                0,
-                EF2_GIF_FLG_IMAGE,
-                0);
-        image_tag.hi = 0;
-
-        if (ef2_video_submit_qwords(
-                &image_tag, 1) < 0)
-            return -6;
-
-        if (ef2_video_submit_qwords(
-                (const ef2_gif_qword *)pixels +
-                    offset_qwords,
-                chunk) < 0)
-            return -7;
-
-        offset_qwords += chunk;
-        remaining -= chunk;
-    }
-
-    flush[0].lo =
-        ef2_gif_pack_tag(
-            1, 1, 0, 0,
-            EF2_GIF_FLG_PACKED, 1);
-    flush[0].hi = EF2_GIF_REG_AD;
-
-    ef2_gif_ad(
-        &flush[1],
-        0,
-        EF2_GS_ADDR_TEXFLUSH);
-
-    if (ef2_video_submit_qwords(flush, 2) < 0)
-        return -8;
+    if (ef2_video_flush_texture_cache() < 0)
+        return -6;
 
     texture->valid = 1;
     ef2_video_texture_cursor =
@@ -464,6 +517,119 @@ int ef2_video_upload_rgba32(
 
     return 0;
 }
+
+int ef2_video_upload_indexed8(
+    ef2_video_texture *texture,
+    const ef2_u8 *indices,
+    const ef2_u32 *palette_rgba32,
+    ef2_u16 width,
+    ef2_u16 height)
+{
+    ef2_u32 padded_width;
+    ef2_u32 padded_height;
+    ef2_u32 texture_bytes;
+    ef2_u32 index_bytes;
+    ef2_u32 texture_cursor;
+    ef2_u32 clut_cursor;
+    ef2_u32 end_cursor;
+    ef2_u8 tbw;
+
+    if (texture == (ef2_video_texture *)0 ||
+        indices == (const ef2_u8 *)0 ||
+        palette_rgba32 == (const ef2_u32 *)0 ||
+        width == 0u || height == 0u ||
+        width > 1024u || height > 1024u)
+        return -1;
+
+    if (((ef2_u32)indices & 0x0Fu) != 0u ||
+        ((ef2_u32)palette_rgba32 & 0x0Fu) != 0u)
+        return -2;
+
+    index_bytes =
+        (ef2_u32)width *
+        (ef2_u32)height;
+
+    if ((index_bytes & 0x0Fu) != 0u)
+        return -3;
+
+    padded_width =
+        ef2_align_up_u32(width, 128u);
+    padded_height =
+        ef2_align_up_u32(height, 64u);
+
+    texture_bytes =
+        padded_width * padded_height;
+
+    texture_cursor =
+        ef2_align_up_u32(
+            ef2_video_texture_cursor,
+            EF2_GS_TEXTURE_PAGE_BYTES);
+
+    clut_cursor =
+        ef2_align_up_u32(
+            texture_cursor + texture_bytes,
+            256u);
+
+    end_cursor = clut_cursor + 1024u;
+
+    if (end_cursor > EF2_GS_VRAM_BYTES)
+        return -4;
+
+    tbw = (ef2_u8)(padded_width / 64u);
+
+    texture->vram_address =
+        (ef2_u16)(texture_cursor / 256u);
+    texture->clut_address =
+        (ef2_u16)(clut_cursor / 256u);
+    texture->width = width;
+    texture->height = height;
+    texture->buffer_width = tbw;
+    texture->psm = EF2_GS_PSMT8;
+    texture->clut_psm = EF2_GS_PSMCT32;
+    texture->width_log2 =
+        ef2_log2_ceil_u16(width);
+    texture->height_log2 =
+        ef2_log2_ceil_u16(height);
+    texture->valid = 0;
+    texture->indexed = 1;
+    texture->reserved[0] = 0;
+    texture->reserved[1] = 0;
+
+    if (ef2_video_upload_image(
+            texture->vram_address,
+            texture->buffer_width,
+            EF2_GS_PSMT8,
+            width,
+            height,
+            indices,
+            index_bytes) < 0)
+        return -5;
+
+    ef2_video_prepare_csm1_clut(
+        palette_rgba32);
+
+    /*
+     * CSM1 RGBA32 CLUT is uploaded as a 16x16 CT32 image.
+     * DBW remains one 64-pixel unit just like the established draw path.
+     */
+    if (ef2_video_upload_image(
+            texture->clut_address,
+            1,
+            EF2_GS_PSMCT32,
+            16,
+            16,
+            ef2_video_clut_stage,
+            1024u) < 0)
+        return -6;
+
+    if (ef2_video_flush_texture_cache() < 0)
+        return -7;
+
+    texture->valid = 1;
+    ef2_video_texture_cursor = end_cursor;
+    return 0;
+}
+
 
 int ef2_video_draw_texture_region(
     const ef2_video_texture *texture,
@@ -492,7 +658,8 @@ int ef2_video_draw_texture_region(
     if (texture ==
             (const ef2_video_texture *)0 ||
         !texture->valid ||
-        texture->psm != EF2_GS_PSMCT32 ||
+        (texture->psm != EF2_GS_PSMCT32 &&
+         texture->psm != EF2_GS_PSMT8) ||
         source_width == 0u ||
         source_height == 0u ||
         width <= 0 || height <= 0)
@@ -557,17 +724,36 @@ int ef2_video_draw_texture_region(
         0,
         EF2_GS_ADDR_TEST_1);
 
-    ef2_gif_ad(
-        &packet[5],
-        ef2_gs_pack_tex0(
-            texture->vram_address,
-            texture->buffer_width,
-            texture->psm,
-            texture->width_log2,
-            texture->height_log2,
-            1,
-            0),
-        EF2_GS_ADDR_TEX0_1);
+    if (texture->indexed) {
+        ef2_gif_ad(
+            &packet[5],
+            ef2_gs_pack_tex0_clut(
+                texture->vram_address,
+                texture->buffer_width,
+                texture->psm,
+                texture->width_log2,
+                texture->height_log2,
+                1,
+                0,
+                texture->clut_address,
+                texture->clut_psm,
+                0,
+                0,
+                1),
+            EF2_GS_ADDR_TEX0_1);
+    } else {
+        ef2_gif_ad(
+            &packet[5],
+            ef2_gs_pack_tex0(
+                texture->vram_address,
+                texture->buffer_width,
+                texture->psm,
+                texture->width_log2,
+                texture->height_log2,
+                1,
+                0),
+            EF2_GS_ADDR_TEX0_1);
+    }
 
     ef2_gif_ad(
         &packet[6],

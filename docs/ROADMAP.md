@@ -46,7 +46,8 @@
 - [x] initial textured sprite API
 - [x] partial UV/crop textured sprite API
 - [x] RGBA modulation and source-over alpha blending
-- [ ] indexed textures/CLUT support
+- [x] initial PSMT8 indexed texture + RGBA32 CSM1 CLUT support
+- [ ] PSMT4 indexed texture support
 
 ## P3 - Input and IOP
 

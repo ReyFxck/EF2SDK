@@ -17,6 +17,8 @@ volatile ef2_s32 ef2_audio_status;
 static ef2_s16 g_melody_input[EF2_MELODY_INPUT_FRAMES * 2u];
 static ef2_s16 g_melody_output[EF2_MELODY_OUTPUT_FRAMES * 2u];
 static ef2_u32 g_checkerboard[32u * 32u] EF2_ALIGN(16);
+static ef2_u8 g_indexed_pixels[32u * 32u] EF2_ALIGN(16);
+static ef2_u32 g_indexed_palette[256] EF2_ALIGN(16);
 
 static const ef2_u16 g_melody_notes[] = {
     262, 330, 392, 523,
@@ -76,6 +78,35 @@ static void generate_checkerboard(void)
                 checker
                     ? 0x80F05020u
                     : 0x802040F0u;
+        }
+    }
+}
+
+static void generate_indexed_texture(void)
+{
+    ef2_u32 i;
+    ef2_u32 y;
+
+    for (i = 0; i < 256u; ++i) {
+        ef2_u8 r = (ef2_u8)i;
+        ef2_u8 g = (ef2_u8)(255u - i);
+        ef2_u8 b = (ef2_u8)((i * 5u) & 0xFFu);
+
+        g_indexed_palette[i] =
+            (ef2_u32)r |
+            ((ef2_u32)g << 8) |
+            ((ef2_u32)b << 16) |
+            (0x80u << 24);
+    }
+
+    for (y = 0; y < 32u; ++y) {
+        ef2_u32 x;
+
+        for (x = 0; x < 32u; ++x) {
+            g_indexed_pixels[y * 32u + x] =
+                (ef2_u8)(
+                    x * 8u +
+                    (y & 7u));
         }
     }
 }
@@ -240,6 +271,7 @@ int main(void)
     ef2_u8 rumble_small = 0;
     ef2_u8 rumble_large = 0;
     ef2_video_texture checker_texture;
+    ef2_video_texture indexed_texture;
 
     ef2_boot_counter = 1;
     ef2_audio_status = -1;
@@ -323,6 +355,31 @@ int main(void)
         0x80,
         0x40,
         1);
+
+    generate_indexed_texture();
+
+    if (ef2_video_upload_indexed8(
+            &indexed_texture,
+            g_indexed_pixels,
+            g_indexed_palette,
+            32,
+            32) == 0) {
+        (void)ef2_video_draw_texture(
+            &indexed_texture,
+            416,
+            16,
+            96,
+            96);
+    } else {
+        (void)ef2_video_draw_rect(
+            416,
+            16,
+            96,
+            96,
+            220,
+            40,
+            48);
+    }
 
     show_gif_transport_indicator();
 

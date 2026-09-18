@@ -92,3 +92,20 @@ Optional alpha blending uses the standard source-over equation:
 The alpha.26 smoke test draws the center 16x16 region of the validated
 checkerboard over a yellow rectangle at approximately 50% opacity. The
 original full-texture draw remains in place as a baseline.
+
+
+## Alpha.27 PSMT8 + CLUT
+
+Alpha.27 adds `ef2_video_upload_indexed8()` for 8-bit indexed textures with
+a 256-entry RGBA32 palette.
+
+The texture is stored as PSMT8 and the palette as PSMCT32. EF2SDK performs
+the CSM1 palette index rearrangement internally by swapping address bits 3
+and 4, so callers provide an ordinary linear palette indexed 0..255.
+
+The indexed texture and its CLUT receive independent VRAM allocations.
+Texture storage is page-safe for the PSMT8 128x64 page geometry, while the
+CLUT is aligned to a 256-byte GS block.
+
+The alpha.27 smoke test generates a 32x32 indexed gradient/pattern, uploads
+its 256-color CLUT, and draws it enlarged next to the RGBA32 checkerboard.

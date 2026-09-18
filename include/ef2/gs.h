@@ -16,6 +16,8 @@
 #define EF2_GS_CSR_RESET ((ef2_u64)1u << 9)
 
 #define EF2_GS_PSMCT32 0u
+#define EF2_GS_PSMT8   0x13u
+#define EF2_GS_PSMT4   0x14u
 
 #define EF2_GS_VRAM_BYTES (4u * 1024u * 1024u)
 
@@ -156,6 +158,34 @@ static inline ef2_u64 ef2_gs_pack_uv(
 {
     return ((ef2_u64)(u & 0x3FFFu) << 0) |
            ((ef2_u64)(v & 0x3FFFu) << 16);
+}
+
+static inline ef2_u64 ef2_gs_pack_tex0_clut(
+    ef2_u16 tbp0,
+    ef2_u8 tbw,
+    ef2_u8 psm,
+    ef2_u8 tw,
+    ef2_u8 th,
+    ef2_u8 tcc,
+    ef2_u8 tfx,
+    ef2_u16 cbp,
+    ef2_u8 cpsm,
+    ef2_u8 csm,
+    ef2_u8 csa,
+    ef2_u8 cld)
+{
+    return ((ef2_u64)(tbp0 & 0x3FFFu) << 0) |
+           ((ef2_u64)(tbw & 0x3Fu) << 14) |
+           ((ef2_u64)(psm & 0x3Fu) << 20) |
+           ((ef2_u64)(tw & 0x0Fu) << 26) |
+           ((ef2_u64)(th & 0x0Fu) << 30) |
+           ((ef2_u64)(tcc & 1u) << 34) |
+           ((ef2_u64)(tfx & 3u) << 35) |
+           ((ef2_u64)(cbp & 0x3FFFu) << 37) |
+           ((ef2_u64)(cpsm & 0x0Fu) << 51) |
+           ((ef2_u64)(csm & 1u) << 55) |
+           ((ef2_u64)(csa & 0x1Fu) << 56) |
+           ((ef2_u64)(cld & 7u) << 61);
 }
 
 static inline ef2_u64 ef2_gs_pack_tex0(
