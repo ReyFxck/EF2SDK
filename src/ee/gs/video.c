@@ -16,6 +16,10 @@ static ef2_u32 ef2_video_texture_start;
 static ef2_u32 ef2_video_texture_cursor;
 static ef2_u32 ef2_video_clut_stage[256] EF2_ALIGN(16);
 
+static int ef2_video_submit_qwords(
+    const ef2_gif_qword *packet,
+    ef2_u32 count);
+
 static int ef2_video_standard_valid(
     ef2_video_standard standard)
 {
