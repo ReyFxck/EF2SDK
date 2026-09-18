@@ -19,7 +19,7 @@ cp build/ports/zlib-target/zlib.h "${STAGE}/include/"
 cp build/ports/zlib-target/zconf.h "${STAGE}/include/"
 cp ld/ee.ld "${STAGE}/ld/"
 cp README.md LICENSE VERSION "${STAGE}/"
-cp docs/ARCHITECTURE.md docs/ROADMAP.md docs/AUDIO.md docs/PAD.md docs/VIDEO.md ports/zlib/README.md "${STAGE}/docs/"
+cp docs/ARCHITECTURE.md docs/ROADMAP.md docs/AUDIO.md docs/PAD.md docs/VIDEO.md docs/RUNTIME.md ports/zlib/README.md "${STAGE}/docs/"
 
 (
     cd "${DIST}"
