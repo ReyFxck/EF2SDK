@@ -2,7 +2,7 @@
  * EF2SDK replacement for zlib's target-dependent zutil.c.
  *
  * This file intentionally provides only the pieces needed by the in-memory
- * deflate/inflate core. The gz*/stdio layer is not part of this port yet.
+ * deflate/inflate core. The gzip/stdio file layer is not part of this port yet.
  */
 #include "zutil.h"
 
