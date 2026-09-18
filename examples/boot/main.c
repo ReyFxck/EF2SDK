@@ -299,7 +299,7 @@ static void show_init_failure(ef2_s32 status)
     }
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
     const ef2_video_config video = {
         .standard = EF2_VIDEO_NTSC,
@@ -321,6 +321,9 @@ int main(void)
     ef2_video_texture checker_texture;
     ef2_video_texture indexed_texture;
     ef2_video_texture indexed4_texture;
+
+    (void)argc;
+    (void)argv;
 
     ef2_boot_counter = 1;
     ef2_audio_status = -1;

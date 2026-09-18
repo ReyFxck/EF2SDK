@@ -16,6 +16,7 @@
     .endm
 
     EF2_SYSCALL ef2_kernel_set_gs_crt, 2
+    EF2_SYSCALL ef2_kernel_exit, 4
     EF2_SYSCALL ef2_kernel_add_dmac_handler, 0x12
     EF2_SYSCALL ef2_kernel_enable_dmac, 0x16
     EF2_SYSCALL ef2_kernel_flush_cache, 0x64

@@ -15,8 +15,8 @@
 ## P1 - EE runtime
 
 - [x] BSS initialization
-- [ ] argc/argv public ABI
-- [ ] clean exit path
+- [x] loader-aware argc/argv public ABI
+- [x] main-return/KExit clean exit path
 - [x] initial range-based EE D-cache writeback/invalidate helper
 - [x] first raw kernel syscall wrapper (`SetGsCrt`, syscall 0x02)
 - [ ] general kernel syscall wrappers

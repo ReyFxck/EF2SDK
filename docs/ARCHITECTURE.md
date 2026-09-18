@@ -51,3 +51,23 @@ PlayStation 2 hardware / ROM kernel
 4. Upstream third-party libraries should stay as close to upstream as possible.
 5. CI must verify that accidental PS2SDK link dependencies are not introduced.
 6. Documentation lives beside the implementation and changes with it.
+
+
+## Runtime entry ABI
+
+The freestanding entry point preserves the launcher's original `$a0/$a1`
+registers before clearing BSS. EF2SDK then normalizes common launcher forms:
+
+- direct C-style `argc/argv`;
+- ps2link/PS2SDK-style `sargs_start`;
+- a direct `sargs` pointer used by some custom loaders.
+
+The normalized values are passed to `main(int argc, char **argv)` and are
+also available through `ef2_runtime_get_args()`. The original register
+values are retained in the public runtime info for diagnosing unusual
+loaders.
+
+Returning from `main` now calls the EE kernel KExit syscall through
+`ef2_runtime_exit()` instead of entering the old permanent halt loop.
+EF2SDK deliberately does not make SetupThread mandatory yet; the startup path
+that has already been validated remains otherwise unchanged.

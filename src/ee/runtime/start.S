@@ -8,6 +8,14 @@
 
 _start:
 __start:
+    /*
+     * Preserve the loader-provided argument registers before touching BSS.
+     * Different launchers use either argc/argv directly or a pointer to an
+     * sargs-style structure; runtime.c normalizes both forms.
+     */
+    move    $s0, $a0
+    move    $s1, $a1
+
     la      $sp, __ef2_stack_top
     move    $fp, $zero
 
@@ -24,9 +32,12 @@ __start:
     nop
 
 .Lef2_bss_done:
-    /* $a0/$a1 are intentionally left untouched so a loader-provided
-     * argc/argv can be handed to main once the public ABI is finalized. */
-    jal     main
+    move    $a0, $s0
+    move    $a1, $s1
+    jal     ef2_runtime_capture_loader_args
+    nop
+
+    jal     ef2_runtime_run_main
     nop
 
 .Lef2_halt:
