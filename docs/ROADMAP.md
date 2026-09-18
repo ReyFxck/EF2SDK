@@ -50,7 +50,8 @@
 - [ ] validate EF2Pad on real fat/slim PS2 hardware
 - [x] initial rumble/actuator API and direct SIO2 actuator alignment
 - [ ] validate rumble on real DualShock 1/2 and common clones
-- [ ] multitap support
+- [x] initial direct-SIO2 Multitap topology and per-slot API
+- [ ] validate Multitap slot switching on real hardware
 - [ ] memory card access
 - [ ] USB mass storage path
 

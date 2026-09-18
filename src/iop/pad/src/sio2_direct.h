@@ -20,4 +20,10 @@ int ef2_sio2_transfer_pad(
     u8 *output,
     ef2_sio2_result *result);
 
+int ef2_sio2_mtap_get_slot_count(unsigned int port);
+
+int ef2_sio2_mtap_select_slot(
+    unsigned int port,
+    unsigned int slot);
+
 #endif

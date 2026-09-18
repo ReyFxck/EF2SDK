@@ -3,6 +3,7 @@
 #include <ef2/pad_rpc.h>
 
 #define EF2PAD_PORT_COUNT 2u
+#define EF2PAD_SLOT_COUNT 4u
 #define EF2PAD_MAX_PACKET 32u
 #define EF2PAD_RPC_INPUT_BYTES \
     ((sizeof(ef2_pad_rpc_request) + 63u) & ~63u)
@@ -40,7 +41,10 @@ static unsigned char g_rpc_input[EF2PAD_RPC_INPUT_BYTES]
 static ef2_pad_rpc_reply g_rpc_reply
     __attribute__((aligned(64)));
 
-static ef2pad_port_state g_ports[EF2PAD_PORT_COUNT];
+static ef2pad_port_state
+    g_ports[EF2PAD_PORT_COUNT][EF2PAD_SLOT_COUNT];
+static ef2_u8 g_slot_count[EF2PAD_PORT_COUNT] = {1u, 1u};
+static ef2_u8 g_selected_slot[EF2PAD_PORT_COUNT];
 
 static int g_rpc_ready_sema = -1;
 
@@ -103,6 +107,7 @@ static int response_looks_like_pad(
 
 static int transfer_poll(
     ef2_u32 port,
+    ef2pad_port_state *state,
     ef2_u8 id_hint,
     ef2_u8 timing_profile,
     ef2_u8 stat70_bit,
@@ -131,9 +136,9 @@ static int transfer_poll(
 
     if (size >= 9u &&
         id_hint != 0u &&
-        g_ports[port].rumble_supported) {
-        input[3] = g_ports[port].rumble_small ? 1u : 0u;
-        input[4] = g_ports[port].rumble_large;
+        state->rumble_supported) {
+        input[3] = state->rumble_small ? 1u : 0u;
+        input[4] = state->rumble_large;
         input[5] = 0xFFu;
         input[6] = 0xFFu;
         input[7] = 0xFFu;
@@ -425,6 +430,7 @@ static int try_profile(
 
     result = transfer_poll(
         port,
+        state,
         id_hint,
         timing_profile,
         stat70_bit,
@@ -486,14 +492,81 @@ static int discover_pad(
     return result;
 }
 
-static int poll_port(ef2_u32 port)
+static void refresh_topology_port(ef2_u32 port)
 {
-    ef2pad_port_state *state = &g_ports[port];
+    int slots =
+        ef2_sio2_mtap_get_slot_count(port);
+
+    if (slots >= 2 && slots <= (int)EF2PAD_SLOT_COUNT)
+        g_slot_count[port] = (ef2_u8)slots;
+    else
+        g_slot_count[port] = 1u;
+
+    g_selected_slot[port] = 0;
+}
+
+static void refresh_topology(void)
+{
+    ef2_u32 port;
+
+    for (port = 0; port < EF2PAD_PORT_COUNT; ++port)
+        refresh_topology_port(port);
+}
+
+static int select_endpoint(
+    ef2_u32 port,
+    ef2_u32 slot)
+{
+    int result;
+
+    if (slot >= g_slot_count[port])
+        return -1;
+
+    if (g_slot_count[port] <= 1u)
+        return slot == 0u ? 0 : -1;
+
+    if (g_selected_slot[port] == (ef2_u8)slot)
+        return 0;
+
+    result = ef2_sio2_mtap_select_slot(
+        port,
+        slot);
+
+    if (result < 0) {
+        refresh_topology_port(port);
+
+        if (g_slot_count[port] <= 1u)
+            return slot == 0u ? 0 : -1;
+
+        result = ef2_sio2_mtap_select_slot(
+            port,
+            slot);
+
+        if (result < 0)
+            return result;
+    }
+
+    g_selected_slot[port] = (ef2_u8)slot;
+    return 0;
+}
+
+static int poll_slot(
+    ef2_u32 port,
+    ef2_u32 slot)
+{
+    ef2pad_port_state *state = &g_ports[port][slot];
     ef2_u8 reply[EF2PAD_MAX_PACKET];
     ef2_u32 reply_size = 0;
     ef2_u8 was_connected = state->connected;
     ef2_u8 previous_id = state->id;
     int result;
+
+    result = select_endpoint(port, slot);
+    if (result < 0) {
+        state->connected = 0;
+        state->buttons = 0;
+        return result;
+    }
 
     if (state->connected) {
         result = try_profile(
@@ -629,6 +702,14 @@ static void fill_rpc_port(
         dest->reserved1[i] = 0;
 }
 
+static void fill_topology_reply(void)
+{
+    g_rpc_reply.slot_count[0] = g_slot_count[0];
+    g_rpc_reply.slot_count[1] = g_slot_count[1];
+    g_rpc_reply.reserved[0] = 0;
+    g_rpc_reply.reserved[1] = 0;
+}
+
 static void *rpc_handler(
     int function,
     void *buffer,
@@ -642,6 +723,7 @@ static void *rpc_handler(
 
     switch (function) {
         case EF2_PAD_RPC_INIT:
+            refresh_topology();
             break;
 
         case EF2_PAD_RPC_POLL:
@@ -652,50 +734,108 @@ static void *rpc_handler(
 
             for (port = 0; port < EF2PAD_PORT_COUNT; ++port) {
                 if ((request->port_mask & (1u << port)) != 0u)
-                    (void)poll_port(port);
+                    (void)poll_slot(port, 0);
             }
             break;
 
+        case EF2_PAD_RPC_POLL_SLOT:
+            if (length < (int)sizeof(*request) ||
+                request->port >= EF2PAD_PORT_COUNT ||
+                request->slot >= EF2PAD_SLOT_COUNT) {
+                g_rpc_reply.result = -1;
+                break;
+            }
+
+            if (request->slot >= g_slot_count[request->port]) {
+                g_rpc_reply.result = -2;
+                break;
+            }
+
+            (void)poll_slot(
+                request->port,
+                request->slot);
+
+            fill_rpc_port(
+                &g_rpc_reply.slot_state,
+                &g_ports[request->port][request->slot]);
+            break;
+
+        case EF2_PAD_RPC_REFRESH_TOPOLOGY:
+            refresh_topology();
+            break;
+
         case EF2_PAD_RPC_SET_RUMBLE:
+        case EF2_PAD_RPC_SET_RUMBLE_SLOT:
+        {
+            ef2pad_port_state *state;
+            ef2_u32 target_port;
+            ef2_u32 target_slot;
+
             if (length < (int)sizeof(*request)) {
                 g_rpc_reply.result = -1;
                 break;
             }
 
-            for (port = 0; port < EF2PAD_PORT_COUNT; ++port) {
-                ef2pad_port_state *state = &g_ports[port];
+            if (function == EF2_PAD_RPC_SET_RUMBLE) {
+                target_port = 0;
+                target_slot = 0;
 
-                if ((request->port_mask & (1u << port)) == 0u)
-                    continue;
-
-                if (!state->connected) {
-                    g_rpc_reply.result = -2;
-                    continue;
+                for (port = 0; port < EF2PAD_PORT_COUNT; ++port) {
+                    if ((request->port_mask & (1u << port)) != 0u) {
+                        target_port = port;
+                        break;
+                    }
                 }
-
-                if (!state->rumble_supported) {
-                    g_rpc_reply.result = -3;
-                    continue;
-                }
-
-                state->rumble_small =
-                    request->small_motor[port] ? 1u : 0u;
-                state->rumble_large =
-                    request->large_motor[port];
+            } else {
+                target_port = request->port;
+                target_slot = request->slot;
             }
+
+            if (target_port >= EF2PAD_PORT_COUNT ||
+                target_slot >= EF2PAD_SLOT_COUNT ||
+                target_slot >= g_slot_count[target_port]) {
+                g_rpc_reply.result = -2;
+                break;
+            }
+
+            state = &g_ports[target_port][target_slot];
+
+            if (!state->connected) {
+                g_rpc_reply.result = -3;
+                break;
+            }
+
+            if (!state->rumble_supported) {
+                g_rpc_reply.result = -4;
+                break;
+            }
+
+            state->rumble_small =
+                request->small_motor ? 1u : 0u;
+            state->rumble_large =
+                request->large_motor;
+
+            fill_rpc_port(
+                &g_rpc_reply.slot_state,
+                state);
             break;
+        }
 
         default:
             g_rpc_reply.result = -100;
             break;
     }
 
-    for (port = 0; port < EF2PAD_PORT_COUNT; ++port)
-        fill_rpc_port(&g_rpc_reply.port[port], &g_ports[port]);
+    fill_topology_reply();
+
+    for (port = 0; port < EF2PAD_PORT_COUNT; ++port) {
+        fill_rpc_port(
+            &g_rpc_reply.port[port],
+            &g_ports[port][0]);
+    }
 
     return &g_rpc_reply;
 }
-
 static void rpc_thread(void *arg)
 {
     int tid;
@@ -733,11 +873,21 @@ int _start(int argc, char *argv[])
     CpuEnableIntr();
 
     for (port = 0; port < EF2PAD_PORT_COUNT; ++port) {
-        clear_bytes(&g_ports[port], sizeof(g_ports[port]));
-        g_ports[port].right_x = 0x80u;
-        g_ports[port].right_y = 0x80u;
-        g_ports[port].left_x = 0x80u;
-        g_ports[port].left_y = 0x80u;
+        ef2_u32 slot;
+
+        g_slot_count[port] = 1u;
+        g_selected_slot[port] = 0u;
+
+        for (slot = 0; slot < EF2PAD_SLOT_COUNT; ++slot) {
+            ef2pad_port_state *state =
+                &g_ports[port][slot];
+
+            clear_bytes(state, sizeof(*state));
+            state->right_x = 0x80u;
+            state->right_y = 0x80u;
+            state->left_x = 0x80u;
+            state->left_y = 0x80u;
+        }
     }
 
     sio2_result = ef2_sio2_init();

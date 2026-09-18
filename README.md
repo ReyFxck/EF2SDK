@@ -24,7 +24,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - an audible generated 32 kHz -> 48 kHz melody smoke test;
 - EF2Audio runtime volume, pause/resume, stop, flush, stats and configurable queue latency;
 - direct EF2-owned SPU2/DMA streaming without a runtime LIBSD dependency;
-- an initial EF2Pad controller layer with its own SIO2 transport, timeouts, reconnect handling, held/edge helpers, analog deadzone normalization and direct DualShock rumble;
+- an initial EF2Pad controller layer with its own SIO2 transport, timeouts, reconnect handling, held/edge helpers, analog deadzone normalization, direct DualShock rumble, dual-port polling and experimental Multitap slot support;
 - CI builds for every push and pull request;
 - automatic packaged artifacts;
 - automatic GitHub Releases for `v*` tags;

@@ -117,46 +117,27 @@ int ef2_sio2_init(void)
     return 0;
 }
 
-int ef2_sio2_transfer_pad(
-    unsigned int port,
-    unsigned int timing_profile,
-    unsigned int stat70_bit,
+static int ef2_sio2_transfer_raw(
+    unsigned int logical_port,
+    u32 ctrl1,
+    u32 ctrl2,
+    u32 regdata,
     const u8 *input,
     unsigned int size,
     u8 *output,
     ef2_sio2_result *result)
 {
-    u32 ctrl1;
-    u32 ctrl2;
-    u32 regdata;
     unsigned int i;
     int wait_result;
 
     if (!g_initialized ||
-        port >= 2u ||
+        logical_port >= 4u ||
         input == (const u8 *)0 ||
         output == (u8 *)0 ||
         result == (ef2_sio2_result *)0 ||
-        size < 3u ||
+        size == 0u ||
         size > 32u)
         return -1;
-
-    if (stat70_bit != 0u) {
-        ctrl1 = 0xFF060505u;
-        ctrl2 = 0x0002012Cu;
-    } else if (timing_profile != 0u) {
-        ctrl1 = 0xFF600A0Au;
-        ctrl2 = 0x00020014u;
-    } else {
-        ctrl1 = 0xFFC00505u;
-        ctrl2 = 0x00020014u;
-    }
-
-    regdata =
-        ((size & 0x1FFu) << 18) |
-        ((size & 0x1FFu) << 8) |
-        0x40u |
-        (port & 3u);
 
     WaitSema(g_transfer_sema);
     drain_irq_sema();
@@ -167,8 +148,8 @@ int ef2_sio2_transfer_pad(
     for (i = 0; i < 16u; ++i)
         EF2_SIO2_SEND3(i) = 0;
 
-    EF2_SIO2_SEND12(port * 2u) = ctrl1;
-    EF2_SIO2_SEND12(port * 2u + 1u) = ctrl2;
+    EF2_SIO2_SEND12(logical_port * 2u) = ctrl1;
+    EF2_SIO2_SEND12(logical_port * 2u + 1u) = ctrl2;
     EF2_SIO2_SEND3(0) = regdata;
     EF2_SIO2_SEND3(1) = 0;
 
@@ -194,6 +175,57 @@ int ef2_sio2_transfer_pad(
         output[i] = EF2_SIO2_IN_FIFO;
 
     SignalSema(g_transfer_sema);
+    return 0;
+}
+
+int ef2_sio2_transfer_pad(
+    unsigned int port,
+    unsigned int timing_profile,
+    unsigned int stat70_bit,
+    const u8 *input,
+    unsigned int size,
+    u8 *output,
+    ef2_sio2_result *result)
+{
+    u32 ctrl1;
+    u32 ctrl2;
+    u32 regdata;
+    int transfer_result;
+
+    if (port >= 2u ||
+        size < 3u ||
+        size > 32u)
+        return -1;
+
+    if (stat70_bit != 0u) {
+        ctrl1 = 0xFF060505u;
+        ctrl2 = 0x0002012Cu;
+    } else if (timing_profile != 0u) {
+        ctrl1 = 0xFF600A0Au;
+        ctrl2 = 0x00020014u;
+    } else {
+        ctrl1 = 0xFFC00505u;
+        ctrl2 = 0x00020014u;
+    }
+
+    regdata =
+        ((size & 0x1FFu) << 18) |
+        ((size & 0x1FFu) << 8) |
+        0x40u |
+        (port & 3u);
+
+    transfer_result = ef2_sio2_transfer_raw(
+        port,
+        ctrl1,
+        ctrl2,
+        regdata,
+        input,
+        size,
+        output,
+        result);
+
+    if (transfer_result < 0)
+        return transfer_result;
 
     if ((result->recv1 & (1u << 13)) != 0u)
         return -3;
@@ -202,4 +234,93 @@ int ef2_sio2_transfer_pad(
         return -4;
 
     return 0;
+}
+
+int ef2_sio2_mtap_get_slot_count(unsigned int port)
+{
+    static const u8 command[6] = {
+        0x21u, 0x12u, 0, 0, 0, 0
+    };
+    ef2_sio2_result result = {0, 0, 0};
+    u8 output[6];
+    unsigned int logical_port;
+    int transfer_result;
+    int slots;
+
+    if (port >= 2u)
+        return -1;
+
+    logical_port = port | 2u;
+
+    transfer_result = ef2_sio2_transfer_raw(
+        logical_port,
+        0xFF020505u,
+        0x00030064u,
+        (logical_port & 3u) | 0x00180640u,
+        command,
+        sizeof(command),
+        output,
+        &result);
+
+    if (transfer_result < 0)
+        return transfer_result;
+
+    if ((result.recv1 & (1u << 16)) != 0u)
+        return -3;
+
+    if (output[5] == 0x66u)
+        return -4;
+
+    slots = (int)output[3];
+
+    if (slots < 1 || slots > 4)
+        return -5;
+
+    return slots;
+}
+
+int ef2_sio2_mtap_select_slot(
+    unsigned int port,
+    unsigned int slot)
+{
+    u8 command[7] = {
+        0x21u, 0x21u, 0, 0, 0, 0, 0
+    };
+    ef2_sio2_result result = {0, 0, 0};
+    u8 output[7];
+    unsigned int logical_port;
+    unsigned int attempt;
+    int transfer_result;
+
+    if (port >= 2u || slot >= 4u)
+        return -1;
+
+    logical_port = port | 2u;
+    command[2] = (u8)slot;
+
+    for (attempt = 0; attempt < 3u; ++attempt) {
+        transfer_result = ef2_sio2_transfer_raw(
+            logical_port,
+            0xFF020505u,
+            0x00030064u,
+            (logical_port & 3u) | 0x001C0740u,
+            command,
+            sizeof(command),
+            output,
+            &result);
+
+        if (transfer_result < 0)
+            continue;
+
+        if ((result.recv1 & (1u << 16)) != 0u)
+            continue;
+
+        if (output[5] == 0x66u)
+            return -3;
+
+        if (output[5] == (u8)slot)
+            return 0;
+    }
+
+    return -4;
 }

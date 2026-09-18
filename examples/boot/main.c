@@ -182,6 +182,7 @@ int main(void)
     ef2_s32 audio_stopped = 0;
     ef2_u32 audio_volume = 0x3000u;
     ef2_pad_state pad;
+    ef2_pad_state pads[EF2_PAD_PORT_COUNT];
     ef2_s32 analog_visual_active = 0;
     ef2_u8 rumble_small = 0;
     ef2_u8 rumble_large = 0;
@@ -232,7 +233,18 @@ int main(void)
         ef2_u32 consumed = 0;
         ef2_u32 produced = 0;
 
-        if (ef2_pad_poll(0, &pad) == 0 && pad.connected) {
+        if (ef2_pad_poll_all(pads) == 0) {
+            pad = pads[0];
+
+            if (pads[1].connected &&
+                ef2_pad_is_held(
+                    &pads[1],
+                    EF2_PAD_CIRCLE)) {
+                ef2_video_clear(160, 64, 224);
+                analog_visual_active = 1;
+            }
+
+            if (pad.connected) {
             if (ef2_pad_was_pressed(
                     &pad,
                     EF2_PAD_CROSS)) {
@@ -344,11 +356,13 @@ int main(void)
 
             if (show_analog_state(&pad)) {
                 analog_visual_active = 1;
-            } else if (analog_visual_active) {
+            } else if (analog_visual_active &&
+                       !pads[1].connected) {
                 analog_visual_active = 0;
                 show_audio_state(
                     audio_paused,
                     audio_stopped);
+            }
             }
         }
 

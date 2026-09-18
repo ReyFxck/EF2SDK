@@ -8,6 +8,7 @@ extern "C" {
 #endif
 
 #define EF2_PAD_PORT_COUNT 2u
+#define EF2_PAD_SLOT_COUNT 4u
 
 #define EF2_PAD_SELECT   0x0001u
 #define EF2_PAD_L3       0x0002u
@@ -84,6 +85,21 @@ int ef2_pad_poll_all(
     ef2_pad_state states[EF2_PAD_PORT_COUNT]);
 
 /*
+ * Multitap-aware extensions. Slot zero is the native-port-compatible slot
+ * used by ef2_pad_poll(). Ports without a Multitap report one slot.
+ */
+int ef2_pad_refresh_topology(void);
+
+int ef2_pad_get_slot_count(
+    ef2_u32 port,
+    ef2_u32 *slot_count);
+
+int ef2_pad_poll_slot(
+    ef2_u32 port,
+    ef2_u32 slot,
+    ef2_pad_state *state);
+
+/*
  * Configure DualShock actuators.
  * small_motor is 0/1; large_motor is 0..255.
  * The values are transmitted with the next successful poll.
@@ -94,6 +110,16 @@ int ef2_pad_set_rumble(
     ef2_u8 large_motor);
 
 int ef2_pad_stop_rumble(ef2_u32 port);
+
+int ef2_pad_set_rumble_slot(
+    ef2_u32 port,
+    ef2_u32 slot,
+    ef2_u8 small_motor,
+    ef2_u8 large_motor);
+
+int ef2_pad_stop_rumble_slot(
+    ef2_u32 port,
+    ef2_u32 slot);
 
 /*
  * Button convenience helpers.

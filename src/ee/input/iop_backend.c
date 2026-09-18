@@ -9,7 +9,9 @@ static ef2_sif_rpc_client g_pad_client;
 static ef2_pad_rpc_request g_request EF2_ALIGN(64);
 static ef2_pad_rpc_reply g_reply EF2_ALIGN(64);
 
-static ef2_u32 g_previous_buttons[EF2_PAD_PORT_COUNT];
+static ef2_u32
+    g_previous_buttons[EF2_PAD_PORT_COUNT][EF2_PAD_SLOT_COUNT];
+static ef2_u32 g_slot_count[EF2_PAD_PORT_COUNT] = {1u, 1u};
 static ef2_s32 g_pad_bound;
 
 static void zero_bytes(void *ptr, ef2_u32 size)
@@ -38,6 +40,11 @@ static int pad_rpc_exchange(ef2_s32 function)
     if (result < 0)
         return result;
 
+    g_slot_count[0] =
+        g_reply.slot_count[0] == 0u ? 1u : g_reply.slot_count[0];
+    g_slot_count[1] =
+        g_reply.slot_count[1] == 0u ? 1u : g_reply.slot_count[1];
+
     return g_reply.result;
 }
 
@@ -53,6 +60,7 @@ static int pad_rpc_call(
 
 static void copy_state(
     ef2_u32 port,
+    ef2_u32 slot,
     ef2_pad_state *dest,
     const ef2_pad_rpc_port_state *source)
 {
@@ -63,7 +71,7 @@ static void copy_state(
         ? source->buttons
         : 0u;
 
-    previous_buttons = g_previous_buttons[port];
+    previous_buttons = g_previous_buttons[port][slot];
 
     dest->frame = source->frame;
     dest->buttons = current_buttons;
@@ -101,13 +109,14 @@ static void copy_state(
     dest->pressure_l2 = source->pressure[10];
     dest->pressure_r2 = source->pressure[11];
 
-    g_previous_buttons[port] = current_buttons;
+    g_previous_buttons[port][slot] = current_buttons;
 }
 
 int ef2_pad_init(void)
 {
     ef2_s32 module_result = -1;
     ef2_u32 port;
+    ef2_u32 slot;
     int result;
 
     if (g_pad_bound)
@@ -155,14 +164,73 @@ int ef2_pad_init(void)
 
     g_pad_bound = 1;
 
-    for (port = 0; port < EF2_PAD_PORT_COUNT; ++port)
-        g_previous_buttons[port] = 0;
+    for (port = 0; port < EF2_PAD_PORT_COUNT; ++port) {
+        g_slot_count[port] = 1u;
+
+        for (slot = 0; slot < EF2_PAD_SLOT_COUNT; ++slot)
+            g_previous_buttons[port][slot] = 0;
+    }
 
     result = pad_rpc_call(EF2_PAD_RPC_INIT, 0);
     if (result < 0) {
         g_pad_bound = 0;
         return -4000 + result;
     }
+
+    return ef2_pad_refresh_topology();
+}
+
+int ef2_pad_refresh_topology(void)
+{
+    if (!g_pad_bound)
+        return -1;
+
+    zero_bytes(&g_request, sizeof(g_request));
+    return pad_rpc_exchange(EF2_PAD_RPC_REFRESH_TOPOLOGY);
+}
+
+int ef2_pad_get_slot_count(
+    ef2_u32 port,
+    ef2_u32 *slot_count)
+{
+    if (!g_pad_bound ||
+        port >= EF2_PAD_PORT_COUNT ||
+        slot_count == (ef2_u32 *)0)
+        return -1;
+
+    *slot_count = g_slot_count[port];
+    return 0;
+}
+
+int ef2_pad_poll_slot(
+    ef2_u32 port,
+    ef2_u32 slot,
+    ef2_pad_state *state)
+{
+    int result;
+
+    if (!g_pad_bound ||
+        port >= EF2_PAD_PORT_COUNT ||
+        slot >= EF2_PAD_SLOT_COUNT ||
+        state == (ef2_pad_state *)0)
+        return -1;
+
+    if (slot >= g_slot_count[port])
+        return -2;
+
+    zero_bytes(&g_request, sizeof(g_request));
+    g_request.port = (ef2_u8)port;
+    g_request.slot = (ef2_u8)slot;
+
+    result = pad_rpc_exchange(EF2_PAD_RPC_POLL_SLOT);
+    if (result < 0)
+        return result;
+
+    copy_state(
+        port,
+        slot,
+        state,
+        &g_reply.slot_state);
 
     return 0;
 }
@@ -171,26 +239,7 @@ int ef2_pad_poll(
     ef2_u32 port,
     ef2_pad_state *state)
 {
-    int result;
-
-    if (!g_pad_bound ||
-        port >= EF2_PAD_PORT_COUNT ||
-        state == (ef2_pad_state *)0)
-        return -1;
-
-    result = pad_rpc_call(
-        EF2_PAD_RPC_POLL,
-        1u << port);
-
-    if (result < 0)
-        return result;
-
-    copy_state(
-        port,
-        state,
-        &g_reply.port[port]);
-
-    return 0;
+    return ef2_pad_poll_slot(port, 0, state);
 }
 
 int ef2_pad_poll_all(
@@ -213,6 +262,7 @@ int ef2_pad_poll_all(
     for (port = 0; port < EF2_PAD_PORT_COUNT; ++port) {
         copy_state(
             port,
+            0,
             &states[port],
             &g_reply.port[port]);
     }
@@ -220,25 +270,52 @@ int ef2_pad_poll_all(
     return 0;
 }
 
-int ef2_pad_set_rumble(
+int ef2_pad_set_rumble_slot(
     ef2_u32 port,
+    ef2_u32 slot,
     ef2_u8 small_motor,
     ef2_u8 large_motor)
 {
     if (!g_pad_bound ||
         port >= EF2_PAD_PORT_COUNT ||
+        slot >= EF2_PAD_SLOT_COUNT ||
+        slot >= g_slot_count[port] ||
         small_motor > 1u)
         return -1;
 
     zero_bytes(&g_request, sizeof(g_request));
-    g_request.port_mask = 1u << port;
-    g_request.small_motor[port] = small_motor;
-    g_request.large_motor[port] = large_motor;
+    g_request.port = (ef2_u8)port;
+    g_request.slot = (ef2_u8)slot;
+    g_request.small_motor = small_motor;
+    g_request.large_motor = large_motor;
 
-    return pad_rpc_exchange(EF2_PAD_RPC_SET_RUMBLE);
+    return pad_rpc_exchange(EF2_PAD_RPC_SET_RUMBLE_SLOT);
+}
+
+int ef2_pad_stop_rumble_slot(
+    ef2_u32 port,
+    ef2_u32 slot)
+{
+    return ef2_pad_set_rumble_slot(
+        port,
+        slot,
+        0,
+        0);
+}
+
+int ef2_pad_set_rumble(
+    ef2_u32 port,
+    ef2_u8 small_motor,
+    ef2_u8 large_motor)
+{
+    return ef2_pad_set_rumble_slot(
+        port,
+        0,
+        small_motor,
+        large_motor);
 }
 
 int ef2_pad_stop_rumble(ef2_u32 port)
 {
-    return ef2_pad_set_rumble(port, 0, 0);
+    return ef2_pad_stop_rumble_slot(port, 0);
 }

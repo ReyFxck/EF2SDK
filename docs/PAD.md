@@ -124,3 +124,31 @@ currently requested motor values.
 The alpha.20 smoke test uses held R1 for the small motor and held R2 for the
 large motor. On a pressure-capable DualShock 2, R2 pressure controls the large
 motor intensity; otherwise R2 falls back to full intensity.
+
+
+## Alpha.21 dual-port and Multitap topology
+
+EF2Pad now keeps independent state for two physical ports and up to four slots
+per port. The original `ef2_pad_poll(port)` API remains source-compatible and
+maps to slot zero.
+
+New APIs expose Multitap-aware topology and slots:
+
+- `ef2_pad_refresh_topology()`;
+- `ef2_pad_get_slot_count()`;
+- `ef2_pad_poll_slot()`;
+- `ef2_pad_set_rumble_slot()`;
+- `ef2_pad_stop_rumble_slot()`.
+
+The direct SIO2 backend implements the small Multitap management protocol
+without MTAPMAN/XSIO2MAN runtime dependencies. It probes slot count through
+the logical SIO2 endpoint `port | 2` and selects a slot before a normal pad
+poll. Ports with no detected Multitap fall back to exactly one native slot.
+
+Slot selection is retried and a failure triggers topology rediscovery, so
+removing a Multitap can fall back to the native controller port rather than
+leaving a stale four-slot topology.
+
+This implementation is CI/build validated only. Multitap behavior is not
+marked hardware-validated until it can be tested with a real Multitap and
+multiple controllers.
