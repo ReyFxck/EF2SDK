@@ -3,6 +3,8 @@
 
 #include <ef2/base.h>
 
+#include <stdarg.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -48,6 +50,18 @@ char *ef2_strncpy(
     char *destination,
     const char *source,
     ef2_size_t size);
+
+int ef2_vsnprintf(
+    char *buffer,
+    ef2_size_t size,
+    const char *format,
+    va_list args);
+
+int ef2_snprintf(
+    char *buffer,
+    ef2_size_t size,
+    const char *format,
+    ...);
 
 #ifdef __cplusplus
 }
