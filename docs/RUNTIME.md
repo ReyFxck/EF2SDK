@@ -87,3 +87,24 @@ font library or heap allocation.
 The smoke test exposes a deliberate trap for emulator validation:
 hold SELECT + L1 + R1 and press TRIANGLE. This calls
 `ef2_crash_trigger_test()`, which raises ExcCode 13 (Trap).
+
+
+## Alpha.38 emulator validation
+
+The deliberate crash path was validated in NetherSX2 on 2026-09-18.
+
+The test produced:
+
+- exception code 13 (Trap);
+- Cause 0x00000034;
+- EPC 0x0010093c;
+- BadVAddr 0x00000000;
+- captured SP, RA and GP values;
+- the recent in-RAM structured boot log on the crash screen.
+
+The alpha.38 ELF symbol table places `ef2_crash_trigger_test` exactly at
+0x0010093c, so the captured EPC resolves directly to the deliberate `teq`
+instruction rather than to an unrelated fault. This validates the complete
+emulator-side path from EE exception vector entry through register capture,
+emergency-stack dispatch, RAM-log preservation and framebuffer postmortem
+rendering.

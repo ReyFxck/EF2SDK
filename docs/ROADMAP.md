@@ -117,6 +117,7 @@
 - [x] always-on RAM diagnostic ring with optional bounded SIO mirror
 - [x] structured boot/subsystem debug milestones
 - [x] initial EE crash vector, register frame and on-screen diagnostics
+- [x] validate crash handler in NetherSX2 (2026-09-18)
 - [ ] validate crash handler on real hardware
 - [ ] lightweight profiler and GS/DMA timing counters
 - [ ] package/port workflow for modern third-party libraries
