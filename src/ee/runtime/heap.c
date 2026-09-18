@@ -41,27 +41,42 @@ static ef2_heap_uptr align_ptr_down(ef2_heap_uptr value)
 }
 
 __attribute__((noinline, optimize("O0")))
-static ef2_u32 multiply_u32(
+static int checked_multiply_u32(
     ef2_u32 left,
-    ef2_u32 right)
+    ef2_u32 right,
+    ef2_u32 *result_out)
 {
     ef2_u32 result = 0;
 
+    if (result_out == (ef2_u32 *)0)
+        return -1;
+
     /*
-     * Keep the freestanding EE object independent from libgcc helpers.
-     * The R5900 bootstrap compiler may otherwise lower some multiplies
-     * through __muldi3 depending on ABI/type promotion choices.
+     * Deliberately avoid both multiply and divide instructions here.
+     * Some R5900 GCC configurations lower integer overflow expressions
+     * through libgcc's __muldi3, which is forbidden by our freestanding
+     * link policy.
      */
     while (right != 0u) {
-        if ((right & 1u) != 0u)
+        if ((right & 1u) != 0u) {
+            if (result > 0xFFFFFFFFu - left)
+                return -1;
+
             result += left;
+        }
 
         right >>= 1;
-        if (right != 0u)
+
+        if (right != 0u) {
+            if (left > 0x7FFFFFFFu)
+                return -1;
+
             left <<= 1;
+        }
     }
 
-    return result;
+    *result_out = result;
+    return 0;
 }
 
 static ef2_u32 header_size(void)
@@ -248,10 +263,11 @@ void *ef2_calloc(ef2_u32 count, ef2_u32 size)
     if (count == 0u || size == 0u)
         return (void *)0;
 
-    if (count > 0xFFFFFFFFu / size)
+    if (checked_multiply_u32(
+            count,
+            size,
+            &total) < 0)
         return (void *)0;
-
-    total = multiply_u32(count, size);
     ptr = (unsigned char *)ef2_malloc(total);
 
     if (ptr == (unsigned char *)0)
