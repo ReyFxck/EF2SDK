@@ -61,3 +61,15 @@ draws it enlarged to 96x96. It also shows a transport indicator:
 
 - green square: GIF DMA remains active with zero fallbacks;
 - orange square: GIF DMA failed or the video path fell back to FIFO.
+
+
+## Alpha.25 PRIM attribute ownership fix
+
+The alpha.24 emulator test confirmed that GIF DMA remained active with zero
+fallbacks, but the textured sprite appeared as a flat 128/128/128 rectangle.
+That color exactly matched the sprite RGBAQ value, indicating that the GS was
+rendering the primitive while ignoring texture enable.
+
+Alpha.25 explicitly writes PRMODECONT.AC=1 before the textured PRIM so TME/FST
+and the other primitive attributes are sourced from PRIM. This removes the
+post-reset ambiguity without relying on BIOS or previous GS state.

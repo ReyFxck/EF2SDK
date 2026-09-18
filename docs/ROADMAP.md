@@ -37,6 +37,7 @@
 - [ ] automatic region/default-mode selection
 - [ ] public framebuffer allocation/configuration API
 - [x] initial GIF DMA normal-mode path with FIFO fallback
+- [x] validate GIF DMA transport in NetherSX2 (2026-09-18)
 - [ ] validate GIF DMA transport on real hardware
 - [x] explicit emulator-visible GIF DMA/fallback diagnostic
 - [x] initial solid rectangle/sprite and line primitive API

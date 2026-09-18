@@ -472,7 +472,7 @@ int ef2_video_draw_texture(
     ef2_s32 width,
     ef2_s32 height)
 {
-    ef2_gif_qword packet[13] EF2_ALIGN(16);
+    ef2_gif_qword packet[14] EF2_ALIGN(16);
     ef2_s32 right;
     ef2_s32 bottom;
     ef2_u16 u1;
@@ -497,7 +497,7 @@ int ef2_video_draw_texture(
 
     packet[0].lo =
         ef2_gif_pack_tag(
-            12, 1, 0, 0,
+            13, 1, 0, 0,
             EF2_GIF_FLG_PACKED, 1);
     packet[0].hi = EF2_GIF_REG_AD;
 
@@ -546,26 +546,36 @@ int ef2_video_draw_texture(
         0,
         EF2_GS_ADDR_TEX1_1);
 
+    /*
+     * PRMODECONT.AC=1 makes PRIM own TME/FST/etc. Without this, a GS reset
+     * may leave those attributes sourced from PRMODE and the textured sprite
+     * degrades into the plain RGBAQ color.
+     */
     ef2_gif_ad(
         &packet[7],
+        1,
+        EF2_GS_ADDR_PRMODECONT);
+
+    ef2_gif_ad(
+        &packet[8],
         ef2_gs_pack_prim_ex(
             EF2_GS_PRIM_SPRITE,
             0, 1, 0, 0, 0, 1, 0, 0),
         EF2_GS_ADDR_PRIM);
 
     ef2_gif_ad(
-        &packet[8],
+        &packet[9],
         ef2_gs_pack_rgbaq(
             0x80, 0x80, 0x80, 0x80),
         EF2_GS_ADDR_RGBAQ);
 
     ef2_gif_ad(
-        &packet[9],
+        &packet[10],
         ef2_gs_pack_uv(0, 0),
         EF2_GS_ADDR_UV);
 
     ef2_gif_ad(
-        &packet[10],
+        &packet[11],
         ef2_gs_pack_xyz(
             (ef2_u16)((ef2_u32)x << 4),
             (ef2_u16)((ef2_u32)y << 4),
@@ -573,19 +583,19 @@ int ef2_video_draw_texture(
         EF2_GS_ADDR_XYZ2);
 
     ef2_gif_ad(
-        &packet[11],
+        &packet[12],
         ef2_gs_pack_uv(u1, v1),
         EF2_GS_ADDR_UV);
 
     ef2_gif_ad(
-        &packet[12],
+        &packet[13],
         ef2_gs_pack_xyz(
             (ef2_u16)((ef2_u32)right << 4),
             (ef2_u16)((ef2_u32)bottom << 4),
             0),
         EF2_GS_ADDR_XYZ2);
 
-    return ef2_video_submit_qwords(packet, 13);
+    return ef2_video_submit_qwords(packet, 14);
 }
 
 int ef2_video_init(

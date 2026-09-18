@@ -26,6 +26,7 @@
 #define EF2_GS_ADDR_TEX0_1     0x06u
 #define EF2_GS_ADDR_TEX1_1     0x14u
 #define EF2_GS_ADDR_XYOFFSET_1 0x18u
+#define EF2_GS_ADDR_PRMODECONT 0x1Au
 #define EF2_GS_ADDR_TEXFLUSH   0x3Fu
 #define EF2_GS_ADDR_SCISSOR_1  0x40u
 #define EF2_GS_ADDR_TEST_1     0x47u

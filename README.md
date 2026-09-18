@@ -30,7 +30,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - automatic GitHub Releases for `v*` tags;
 - automatic release notes grouped by PR labels.
 
-The alpha.1 background-only PCRTC experiment remained black in NetherSX2 and has been retired. The alpha.2 framebuffer/GIF path was visually confirmed in NetherSX2 on 2026-09-17. The embedded EF2Audio path was audibly confirmed in NetherSX2 on 2026-09-18, including the legacy LOADFILE compatibility patch and 32 kHz -> 48 kHz melody stream. EF2Pad's direct SIO2 polling, button edges and reconnect-safe RPC path were also confirmed in NetherSX2 on 2026-09-18.
+The alpha.24 explicit transport diagnostic confirmed the GIF DMA path remains active with zero FIFO fallbacks in NetherSX2 on 2026-09-18. The alpha.1 background-only PCRTC experiment remained black in NetherSX2 and has been retired. The alpha.2 framebuffer/GIF path was visually confirmed in NetherSX2 on 2026-09-17. The embedded EF2Audio path was audibly confirmed in NetherSX2 on 2026-09-18, including the legacy LOADFILE compatibility patch and 32 kHz -> 48 kHz melody stream. EF2Pad's direct SIO2 polling, button edges and reconnect-safe RPC path were also confirmed in NetherSX2 on 2026-09-18.
 
 ## Bootstrap policy
 
