@@ -19,6 +19,9 @@ static ef2_s16 g_melody_output[EF2_MELODY_OUTPUT_FRAMES * 2u];
 static ef2_u32 g_checkerboard[32u * 32u] EF2_ALIGN(16);
 static ef2_u8 g_indexed_pixels[32u * 32u] EF2_ALIGN(16);
 static ef2_u32 g_indexed_palette[256] EF2_ALIGN(16);
+static ef2_u8 g_indexed4_linear[32u * 32u] EF2_ALIGN(16);
+static ef2_u8 g_indexed4_packed[(32u * 32u) / 2u] EF2_ALIGN(16);
+static ef2_u32 g_indexed4_palette[16] EF2_ALIGN(16);
 
 static const ef2_u16 g_melody_notes[] = {
     262, 330, 392, 523,
@@ -109,6 +112,42 @@ static void generate_indexed_texture(void)
                     (y & 7u));
         }
     }
+}
+
+static void generate_indexed4_texture(void)
+{
+    static const ef2_u32 colors[16] = {
+        0x80000000u, 0x800000F0u,
+        0x8000F000u, 0x8000F0F0u,
+        0x80F00000u, 0x80F000F0u,
+        0x80F0F000u, 0x80F0F0F0u,
+        0x80404040u, 0x804040F0u,
+        0x8040F040u, 0x8040F0F0u,
+        0x80F04040u, 0x80F040F0u,
+        0x80F0F040u, 0x80FFFFFFu
+    };
+    ef2_u32 i;
+    ef2_u32 y;
+
+    for (i = 0; i < 16u; ++i)
+        g_indexed4_palette[i] = colors[i];
+
+    for (y = 0; y < 32u; ++y) {
+        ef2_u32 x;
+
+        for (x = 0; x < 32u; ++x) {
+            g_indexed4_linear[y * 32u + x] =
+                (ef2_u8)(
+                    ((x >> 2) +
+                     (y >> 2) * 3u) & 0x0Fu);
+        }
+    }
+
+    (void)ef2_video_pack_indices4(
+        g_indexed4_packed,
+        sizeof(g_indexed4_packed),
+        g_indexed4_linear,
+        32u * 32u);
 }
 
 static void show_gif_transport_indicator(void)
@@ -272,6 +311,7 @@ int main(void)
     ef2_u8 rumble_large = 0;
     ef2_video_texture checker_texture;
     ef2_video_texture indexed_texture;
+    ef2_video_texture indexed4_texture;
 
     ef2_boot_counter = 1;
     ef2_audio_status = -1;
@@ -373,6 +413,31 @@ int main(void)
     } else {
         (void)ef2_video_draw_rect(
             416,
+            16,
+            96,
+            96,
+            220,
+            40,
+            48);
+    }
+
+    generate_indexed4_texture();
+
+    if (ef2_video_upload_indexed4(
+            &indexed4_texture,
+            g_indexed4_packed,
+            g_indexed4_palette,
+            32,
+            32) == 0) {
+        (void)ef2_video_draw_texture(
+            &indexed4_texture,
+            528,
+            16,
+            96,
+            96);
+    } else {
+        (void)ef2_video_draw_rect(
+            528,
             16,
             96,
             96,

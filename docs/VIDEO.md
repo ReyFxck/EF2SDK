@@ -109,3 +109,19 @@ CLUT is aligned to a 256-byte GS block.
 
 The alpha.27 smoke test generates a 32x32 indexed gradient/pattern, uploads
 its 256-color CLUT, and draws it enlarged next to the RGBA32 checkerboard.
+
+
+## Alpha.28 PSMT4 + 16-color CLUT
+
+Alpha.28 adds PSMT4 uploads with a 16-entry RGBA32 palette.
+
+`ef2_video_pack_indices4()` packs ordinary 0..15 palette indices into the
+GS byte layout: the even/left pixel occupies the low nibble and the odd/right
+pixel occupies the high nibble.
+
+`ef2_video_upload_indexed4()` uploads the packed image and a separate 8x2
+PSMCT32 CSM1 CLUT. A 16-color CSM1 CLUT uses identity entry order, unlike the
+256-color PSMT8 palette.
+
+PSMT4 storage is reserved with the 128x128 GS page geometry. The alpha.28
+smoke test draws a generated 16-color 32x32 pattern beside the PSMT8 test.

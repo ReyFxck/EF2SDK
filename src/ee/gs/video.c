@@ -634,6 +634,149 @@ int ef2_video_upload_indexed8(
     return 0;
 }
 
+int ef2_video_pack_indices4(
+    ef2_u8 *packed,
+    ef2_u32 packed_size,
+    const ef2_u8 *indices,
+    ef2_u32 pixel_count)
+{
+    ef2_u32 required;
+    ef2_u32 pair;
+
+    if (packed == (ef2_u8 *)0 ||
+        indices == (const ef2_u8 *)0)
+        return -1;
+
+    required = (pixel_count + 1u) >> 1;
+
+    if (packed_size < required)
+        return -2;
+
+    for (pair = 0; pair < (pixel_count >> 1); ++pair) {
+        ef2_u8 low =
+            indices[pair * 2u] & 0x0Fu;
+        ef2_u8 high =
+            indices[pair * 2u + 1u] & 0x0Fu;
+
+        packed[pair] =
+            (ef2_u8)(low | (high << 4));
+    }
+
+    if ((pixel_count & 1u) != 0u)
+        packed[pixel_count >> 1] =
+            indices[pixel_count - 1u] & 0x0Fu;
+
+    return (int)required;
+}
+
+int ef2_video_upload_indexed4(
+    ef2_video_texture *texture,
+    const ef2_u8 *packed_indices,
+    const ef2_u32 *palette_rgba32_16,
+    ef2_u16 width,
+    ef2_u16 height)
+{
+    ef2_u32 padded_width;
+    ef2_u32 padded_height;
+    ef2_u32 texture_bytes;
+    ef2_u32 pixel_count;
+    ef2_u32 packed_bytes;
+    ef2_u32 texture_cursor;
+    ef2_u32 clut_cursor;
+    ef2_u32 end_cursor;
+    ef2_u8 tbw;
+
+    if (texture == (ef2_video_texture *)0 ||
+        packed_indices == (const ef2_u8 *)0 ||
+        palette_rgba32_16 == (const ef2_u32 *)0 ||
+        width == 0u || height == 0u ||
+        width > 1024u || height > 1024u)
+        return -1;
+
+    if (((ef2_u32)packed_indices & 0x0Fu) != 0u ||
+        ((ef2_u32)palette_rgba32_16 & 0x0Fu) != 0u)
+        return -2;
+
+    pixel_count =
+        (ef2_u32)width *
+        (ef2_u32)height;
+    packed_bytes =
+        (pixel_count + 1u) >> 1;
+
+    if ((packed_bytes & 0x0Fu) != 0u)
+        return -3;
+
+    padded_width =
+        ef2_align_up_u32(width, 128u);
+    padded_height =
+        ef2_align_up_u32(height, 128u);
+
+    texture_bytes =
+        (padded_width * padded_height) >> 1;
+
+    texture_cursor =
+        ef2_align_up_u32(
+            ef2_video_texture_cursor,
+            EF2_GS_TEXTURE_PAGE_BYTES);
+
+    clut_cursor =
+        ef2_align_up_u32(
+            texture_cursor + texture_bytes,
+            256u);
+
+    end_cursor = clut_cursor + 256u;
+
+    if (end_cursor > EF2_GS_VRAM_BYTES)
+        return -4;
+
+    tbw = (ef2_u8)(padded_width / 64u);
+
+    texture->vram_address =
+        (ef2_u16)(texture_cursor / 256u);
+    texture->clut_address =
+        (ef2_u16)(clut_cursor / 256u);
+    texture->width = width;
+    texture->height = height;
+    texture->buffer_width = tbw;
+    texture->psm = EF2_GS_PSMT4;
+    texture->clut_psm = EF2_GS_PSMCT32;
+    texture->width_log2 =
+        ef2_log2_ceil_u16(width);
+    texture->height_log2 =
+        ef2_log2_ceil_u16(height);
+    texture->valid = 0;
+    texture->indexed = 1;
+    texture->reserved[0] = 0;
+    texture->reserved[1] = 0;
+
+    if (ef2_video_upload_image(
+            texture->vram_address,
+            texture->buffer_width,
+            EF2_GS_PSMT4,
+            width,
+            height,
+            packed_indices,
+            packed_bytes) < 0)
+        return -5;
+
+    if (ef2_video_upload_image(
+            texture->clut_address,
+            1,
+            EF2_GS_PSMCT32,
+            8,
+            2,
+            palette_rgba32_16,
+            64u) < 0)
+        return -6;
+
+    if (ef2_video_flush_texture_cache() < 0)
+        return -7;
+
+    texture->valid = 1;
+    ef2_video_texture_cursor = end_cursor;
+    return 0;
+}
+
 
 int ef2_video_draw_texture_region(
     const ef2_video_texture *texture,
@@ -663,7 +806,8 @@ int ef2_video_draw_texture_region(
             (const ef2_video_texture *)0 ||
         !texture->valid ||
         (texture->psm != EF2_GS_PSMCT32 &&
-         texture->psm != EF2_GS_PSMT8) ||
+         texture->psm != EF2_GS_PSMT8 &&
+         texture->psm != EF2_GS_PSMT4) ||
         source_width == 0u ||
         source_height == 0u ||
         width <= 0 || height <= 0)

@@ -92,6 +92,19 @@ int ef2_video_upload_indexed8(
     ef2_u16 width,
     ef2_u16 height);
 
+int ef2_video_pack_indices4(
+    ef2_u8 *packed,
+    ef2_u32 packed_size,
+    const ef2_u8 *indices,
+    ef2_u32 pixel_count);
+
+int ef2_video_upload_indexed4(
+    ef2_video_texture *texture,
+    const ef2_u8 *packed_indices,
+    const ef2_u32 *palette_rgba32_16,
+    ef2_u16 width,
+    ef2_u16 height);
+
 int ef2_video_draw_texture(
     const ef2_video_texture *texture,
     ef2_s32 x,
