@@ -17,7 +17,7 @@
 - [x] BSS initialization
 - [ ] argc/argv public ABI
 - [ ] clean exit path
-- [ ] cache helpers
+- [x] initial range-based EE D-cache writeback/invalidate helper
 - [x] first raw kernel syscall wrapper (`SetGsCrt`, syscall 0x02)
 - [ ] general kernel syscall wrappers
 - [ ] interrupt primitives
@@ -36,7 +36,8 @@
 - [ ] validate framebuffer path on real hardware
 - [ ] automatic region/default-mode selection
 - [ ] public framebuffer allocation/configuration API
-- [ ] GIF DMA path
+- [x] initial GIF DMA normal-mode path with FIFO fallback
+- [ ] validate GIF DMA transport on emulator and real hardware
 - [ ] primitive API beyond the smoke test
 
 ## P3 - Input and IOP

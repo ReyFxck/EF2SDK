@@ -5,6 +5,8 @@
 
 static ef2_u16 ef2_video_width;
 static ef2_u16 ef2_video_height;
+static ef2_u32 ef2_video_gif_dma_available;
+static ef2_u32 ef2_video_gif_dma_fallbacks;
 
 static int ef2_video_standard_valid(ef2_video_standard standard)
 {
@@ -58,6 +60,16 @@ int ef2_video_clear(ef2_u8 r, ef2_u8 g, ef2_u8 b)
     ef2_gif_ad(&packet[7], ef2_gs_pack_xyz(0, 0, 0), EF2_GS_ADDR_XYZ2);
     ef2_gif_ad(&packet[8], ef2_gs_pack_xyz(right, bottom, 0), EF2_GS_ADDR_XYZ2);
 
+    if (ef2_video_gif_dma_available) {
+        if (ef2_gif_dma_send_qwords(
+                packet,
+                9) == 0)
+            return 0;
+
+        ++ef2_video_gif_dma_fallbacks;
+        ef2_video_gif_dma_available = 0;
+    }
+
     ef2_gif_send_qwords(packet, 9);
     return 0;
 }
@@ -106,6 +118,10 @@ int ef2_video_init(const ef2_video_config *config)
     ef2_gs_sync();
 
     ef2_gif_reset();
+
+    ef2_video_gif_dma_fallbacks = 0;
+    ef2_video_gif_dma_available =
+        ef2_gif_dma_init() == 0 ? 1u : 0u;
 
     ef2_kernel_set_gs_crt(
         (ef2_s16)1,

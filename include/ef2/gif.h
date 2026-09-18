@@ -31,7 +31,24 @@ static inline ef2_u64 ef2_gif_pack_tag(
 }
 
 void ef2_gif_reset(void);
-void ef2_gif_send_qwords(const ef2_gif_qword *packet, ef2_u32 count);
+
+/* Synchronous FIFO fallback transport. */
+void ef2_gif_send_qwords(
+    const ef2_gif_qword *packet,
+    ef2_u32 count);
+
+/* Normal-mode EE DMAC channel 2 transport. */
+int ef2_gif_dma_init(void);
+
+int ef2_gif_dma_wait(ef2_u32 timeout);
+
+int ef2_gif_dma_submit_qwords(
+    const ef2_gif_qword *packet,
+    ef2_u32 count);
+
+int ef2_gif_dma_send_qwords(
+    const ef2_gif_qword *packet,
+    ef2_u32 count);
 
 #ifdef __cplusplus
 }

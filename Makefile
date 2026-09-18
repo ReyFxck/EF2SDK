@@ -32,8 +32,10 @@ LDFLAGS := -nostdlib -nostartfiles -nodefaultlibs \
 
 LIB_OBJS := \
     $(BUILD)/syscall.o \
+    $(BUILD)/cache.o \
     $(BUILD)/sif.o \
     $(BUILD)/gif.o \
+    $(BUILD)/gif_dma.o \
     $(BUILD)/video.o \
     $(BUILD)/audio.o \
     $(BUILD)/audio_iop.o \
@@ -59,10 +61,16 @@ $(BUILD)/start.o: src/ee/runtime/start.S | $(BUILD)
 $(BUILD)/syscall.o: src/ee/kernel/syscall.S | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
+$(BUILD)/cache.o: src/ee/kernel/cache.c include/ef2/cache.h include/ef2/base.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
 $(BUILD)/sif.o: src/ee/sif/sif.c include/ef2/base.h include/ef2/kernel.h include/ef2/sif.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/gif.o: src/ee/gs/gif.S | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/gif_dma.o: src/ee/gs/gif_dma.c include/ef2/cache.h include/ef2/gif.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/video.o: src/ee/gs/video.c include/ef2/base.h include/ef2/gif.h include/ef2/gs.h include/ef2/kernel.h include/ef2/video.h | $(BUILD)
@@ -133,7 +141,7 @@ check: $(ELF) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 	@entry=`$(READELF) -h $(ELF) | awk '/Entry point address:/ { print $$4 }'`; \
 	case "$$entry" in 0x100000|0x00100000) ;; *) echo "ERROR: unexpected entry point $$entry"; exit 1 ;; esac
 	@echo "== EF2SDK library symbols =="
-	@for sym in ef2_video_init ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all ef2_pad_poll_slot ef2_pad_get_slot_count ef2_pad_set_rumble ef2_pad_set_rumble_slot ef2_pad_stop_rumble ef2_pad_is_held ef2_pad_axis_deadzone; do \
+	@for sym in ef2_video_init ef2_gif_dma_send_qwords ef2_cache_writeback_invalidate_range ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all ef2_pad_poll_slot ef2_pad_get_slot_count ef2_pad_set_rumble ef2_pad_set_rumble_slot ef2_pad_stop_rumble ef2_pad_is_held ef2_pad_axis_deadzone; do \
 		if ! $(NM) $(LIB) | grep -q " $$sym$$"; then \
 			echo "ERROR: missing library symbol $$sym"; exit 1; \
 		fi; \

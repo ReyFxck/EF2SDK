@@ -1,3 +1,4 @@
+#include <ef2/cache.h>
 #include <ef2/kernel.h>
 #include <ef2/sif.h>
 
@@ -192,29 +193,6 @@ static void ef2_copy_string(char *dest, const char *src, ef2_u32 capacity)
     dest[i] = '\0';
 }
 
-static void ef2_sif_writeback_dcache(void *ptr, ef2_u32 size)
-{
-    ef2_u32 address;
-    ef2_u32 end;
-
-    if (ptr == (void *)0 || size == 0)
-        return;
-
-    address = (ef2_u32)ptr & ~63u;
-    end = ((ef2_u32)ptr + size + 63u) & ~63u;
-
-    while (address < end) {
-        __asm__ volatile(
-            "sync\n\t"
-            "cache 0x18, 0(%0)\n\t"
-            "sync\n\t"
-            :
-            : "r"(address)
-            : "memory");
-        address += 64u;
-    }
-}
-
 static void ef2_cmd_set_sizes(
     ef2_sif_cmd_header *header,
     ef2_u32 packet_size,
@@ -250,7 +228,7 @@ static ef2_u32 ef2_sif_send_cmd(
     if (extra_size != 0) {
         header->dest = extra_dest;
         ef2_cmd_set_sizes(header, packet_size, extra_size);
-        ef2_sif_writeback_dcache(extra_src, extra_size);
+        ef2_cache_writeback_invalidate_range(extra_src, extra_size);
 
         transfers[count].src = extra_src;
         transfers[count].dest = extra_dest;
@@ -265,7 +243,7 @@ static ef2_u32 ef2_sif_send_cmd(
     transfers[count].attr = EF2_SIF_DMA_ERT | EF2_SIF_DMA_INT_O;
     ++count;
 
-    ef2_sif_writeback_dcache(packet, packet_size);
+    ef2_cache_writeback_invalidate_range(packet, packet_size);
     return (ef2_u32)ef2_kernel_sif_set_dma(transfers, count);
 }
 
@@ -628,9 +606,9 @@ int ef2_sif_call(
     call->server = client->server;
 
     if (send_size != 0)
-        ef2_sif_writeback_dcache(send_buffer, send_size);
+        ef2_cache_writeback_invalidate_range(send_buffer, send_size);
     if (receive_size != 0)
-        ef2_sif_writeback_dcache(receive_buffer, receive_size);
+        ef2_cache_writeback_invalidate_range(receive_buffer, receive_size);
 
     g_rpc_wait_done = 0;
 
@@ -718,7 +696,7 @@ static int ef2_sif_dma_to_iop(const void *source, void *dest, ef2_u32 size)
     transfer.size = (ef2_s32)size;
     transfer.attr = 0;
 
-    ef2_sif_writeback_dcache((void *)source, size);
+    ef2_cache_writeback_invalidate_range((void *)source, size);
 
     id = ef2_kernel_sif_set_dma(&transfer, 1);
     if (id <= 0)
