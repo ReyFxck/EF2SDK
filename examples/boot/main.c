@@ -5,6 +5,7 @@
 #include <ef2/gif.h>
 #include <ef2/interrupt.h>
 #include <ef2/kernel.h>
+#include <ef2/memorycard.h>
 #include <ef2/pad.h>
 #include <ef2/sif.h>
 #include <ef2/timer.h>
@@ -362,7 +363,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.44 start argc=%d\n",
+        "alpha.45 start argc=%d\n",
         argc);
 
     {
@@ -789,6 +790,51 @@ int main(int argc, char **argv)
             for (;;)
                 ++ef2_boot_counter;
         }
+    }
+
+    {
+        ef2_mc_info mc0 = {0};
+        ef2_mc_info mc1 = {0};
+        int mc_init_result =
+            ef2_mc_init();
+        int mc0_result = mc_init_result;
+        int mc1_result = mc_init_result;
+
+        if (mc_init_result == 0) {
+            mc0_result =
+                ef2_mc_get_info(0, 0, &mc0);
+
+            /*
+             * The first observation of a card commonly returns "changed".
+             * Query once more so the smoke also records the steady-state
+             * result and free-cluster count.
+             */
+            if (mc0_result == -1 ||
+                mc0_result == -2)
+                mc0_result =
+                    ef2_mc_get_info(0, 0, &mc0);
+
+            mc1_result =
+                ef2_mc_get_info(1, 0, &mc1);
+
+            if (mc1_result == -1 ||
+                mc1_result == -2)
+                mc1_result =
+                    ef2_mc_get_info(1, 0, &mc1);
+        }
+
+        (void)ef2_debug_printf(
+            "MC",
+            "init=%d p0=%d type=%d free=%d fmt=%d p1=%d type=%d free=%d fmt=%d\n",
+            mc_init_result,
+            mc0_result,
+            mc0.type,
+            mc0.free_clusters,
+            mc0.formatted,
+            mc1_result,
+            mc1.type,
+            mc1.free_clusters,
+            mc1.formatted);
     }
 
     {

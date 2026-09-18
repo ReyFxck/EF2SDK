@@ -287,3 +287,13 @@ buffering and crash renderer operate on the smaller logical height.
 For PSMCT16 both half-height layouts reserve 327680 bytes per framebuffer
 (10 GS pages across by 4 pages high), so the texture heap begins at byte
 655360.
+
+
+## Alpha.44 scaled-layout validation
+
+The 640x224 NTSC RGB16 smoke was visually validated in NetherSX2 on
+2026-09-18. The runtime reported PSMCT16, 327680 bytes per framebuffer and a
+texture heap start at byte 655360. The GS expanded the logical 224-line
+framebuffer to the NTSC field output while the established primitive,
+RGBA32/PSMT8/PSMT4 texture, crop/alpha, GIF DMA, audio, pad and crash
+diagnostics remained functional.

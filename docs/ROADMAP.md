@@ -42,7 +42,7 @@
 - [x] initial VSync-synchronized double buffering
 - [x] configurable public framebuffer formats/layouts (RGBA32/RGB16 + integer-scaled dimensions)
 - [x] validate RGB16 framebuffer in NetherSX2 (2026-09-18)
-- [ ] validate non-native scaled framebuffer layout in NetherSX2
+- [x] validate non-native scaled framebuffer layout in NetherSX2 (640x224 NTSC, 2026-09-18)
 - [x] initial GIF DMA normal-mode path with FIFO fallback
 - [x] validate GIF DMA transport in NetherSX2 (2026-09-18)
 - [ ] validate GIF DMA transport on real hardware
@@ -72,7 +72,9 @@
 - [ ] validate rumble on real DualShock 1/2 and common clones
 - [x] initial direct-SIO2 Multitap topology and per-slot API
 - [ ] validate Multitap slot switching on real hardware
-- [ ] memory card access
+- [x] initial memory card RPC access (ROM MCMAN/MCSERV get-info path)
+- [ ] validate memory card get-info/free-space path in NetherSX2
+- [ ] memory card file/directory read-write API
 - [ ] USB mass storage path
 
 ## P4 - Audio
