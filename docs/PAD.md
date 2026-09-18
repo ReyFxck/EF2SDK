@@ -77,3 +77,30 @@ Real-hardware validation should cover at minimum:
 
 Multitap and rumble are deliberately deferred until the two native ports have
 been validated on real hardware.
+
+
+## Alpha.19 input usability
+
+Alpha.19 adds convenience helpers for the three common button states:
+
+- `ef2_pad_is_held()` for continuous/held input;
+- `ef2_pad_was_pressed()` for the rising edge;
+- `ef2_pad_was_released()` for the falling edge.
+
+`ef2_pad_axis_deadzone()` converts a raw 0..255 stick axis to a signed
+-32768..32767 value and removes center noise with a caller-selected deadzone.
+Capability helpers report whether the current packet contains analog axes or
+DualShock 2 pressure values.
+
+The IOP backend also attempts a minimal DualShock configuration sequence once
+per connection. Known digital/analog DualShock IDs are asked to enter config
+mode, switch to locked analog mode, enable the twelve pressure channels when
+supported, and leave config mode. Every step remains bounded by the SIO2
+timeout. Failure is non-fatal: a digital-only controller or clone continues
+using the mode in which it already responds.
+
+The alpha.19 smoke test exercises held input by letting D-pad Up/Down repeat
+volume changes while held. Moving either analog stick changes the framebuffer
+color: left X/Y control red/green, right X controls blue, and right Y controls
+brightness. Returning both sticks to their deadzones restores the normal
+audio-state color.

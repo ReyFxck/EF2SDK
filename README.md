@@ -24,13 +24,13 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - an audible generated 32 kHz -> 48 kHz melody smoke test;
 - EF2Audio runtime volume, pause/resume, stop, flush, stats and configurable queue latency;
 - direct EF2-owned SPU2/DMA streaming without a runtime LIBSD dependency;
-- an initial EF2Pad controller layer with its own SIO2 transport, timeouts and reconnect handling;
+- an initial EF2Pad controller layer with its own SIO2 transport, timeouts, reconnect handling, held/edge helpers and analog deadzone normalization;
 - CI builds for every push and pull request;
 - automatic packaged artifacts;
 - automatic GitHub Releases for `v*` tags;
 - automatic release notes grouped by PR labels.
 
-The alpha.1 background-only PCRTC experiment remained black in NetherSX2 and has been retired. The alpha.2 framebuffer/GIF path was visually confirmed in NetherSX2 on 2026-09-17. The embedded EF2Audio path was audibly confirmed in NetherSX2 on 2026-09-18, including the legacy LOADFILE compatibility patch and 32 kHz -> 48 kHz melody stream.
+The alpha.1 background-only PCRTC experiment remained black in NetherSX2 and has been retired. The alpha.2 framebuffer/GIF path was visually confirmed in NetherSX2 on 2026-09-17. The embedded EF2Audio path was audibly confirmed in NetherSX2 on 2026-09-18, including the legacy LOADFILE compatibility patch and 32 kHz -> 48 kHz melody stream. EF2Pad's direct SIO2 polling, button edges and reconnect-safe RPC path were also confirmed in NetherSX2 on 2026-09-18.
 
 ## Bootstrap policy
 
@@ -57,6 +57,7 @@ The build produces:
 build/ef2-boot.elf
 build/libef2.a
 build/ef2audio.irx
+build/ef2pad.irx
 ```
 
 ## Smoke test

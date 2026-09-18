@@ -7,6 +7,8 @@
 #define EF2_MELODY_NOTE_FRAMES 8000u
 #define EF2_MELODY_INPUT_FRAMES 513u
 #define EF2_MELODY_OUTPUT_FRAMES 800u
+#define EF2_PAD_TEST_DEADZONE 12u
+#define EF2_PAD_HOLD_STEP_POLLS 8u
 
 volatile ef2_u32 ef2_boot_counter;
 volatile ef2_s32 ef2_video_status;
@@ -70,6 +72,78 @@ static void generate_melody_window(ef2_u32 source_frame)
 }
 
 
+static void show_audio_state(
+    ef2_s32 paused,
+    ef2_s32 stopped)
+{
+    if (stopped)
+        ef2_video_clear(112, 40, 48);
+    else if (paused)
+        ef2_video_clear(32, 96, 224);
+    else
+        ef2_video_clear(24, 176, 120);
+}
+
+static int show_analog_state(
+    const ef2_pad_state *pad)
+{
+    ef2_s16 lx;
+    ef2_s16 ly;
+    ef2_s16 rx;
+    ef2_s16 ry;
+    ef2_u32 brightness;
+    ef2_u32 red;
+    ef2_u32 green;
+    ef2_u32 blue;
+
+    if (!ef2_pad_has_analog(pad))
+        return 0;
+
+    lx = ef2_pad_axis_deadzone(
+        pad->left_x,
+        EF2_PAD_TEST_DEADZONE);
+    ly = ef2_pad_axis_deadzone(
+        pad->left_y,
+        EF2_PAD_TEST_DEADZONE);
+    rx = ef2_pad_axis_deadzone(
+        pad->right_x,
+        EF2_PAD_TEST_DEADZONE);
+    ry = ef2_pad_axis_deadzone(
+        pad->right_y,
+        EF2_PAD_TEST_DEADZONE);
+
+    if (lx == 0 && ly == 0 &&
+        rx == 0 && ry == 0)
+        return 0;
+
+    /*
+     * Four-axis visual diagnostic:
+     * left X -> red, left Y -> green,
+     * right X -> blue, right Y -> brightness.
+     */
+    brightness =
+        64u +
+        (((ef2_u32)(255u - pad->right_y) *
+          191u) / 255u);
+
+    red =
+        ((ef2_u32)pad->left_x *
+         brightness) / 255u;
+    green =
+        ((ef2_u32)(255u - pad->left_y) *
+         brightness) / 255u;
+    blue =
+        ((ef2_u32)pad->right_x *
+         brightness) / 255u;
+
+    ef2_video_clear(
+        (ef2_u8)red,
+        (ef2_u8)green,
+        (ef2_u8)blue);
+
+    return 1;
+}
+
 static void show_init_failure(ef2_s32 status)
 {
     if (status <= -4000) {
@@ -108,6 +182,7 @@ int main(void)
     ef2_s32 audio_stopped = 0;
     ef2_u32 audio_volume = 0x3000u;
     ef2_pad_state pad;
+    ef2_s32 analog_visual_active = 0;
 
     ef2_boot_counter = 1;
     ef2_audio_status = -1;
@@ -156,58 +231,97 @@ int main(void)
         ef2_u32 produced = 0;
 
         if (ef2_pad_poll(0, &pad) == 0 && pad.connected) {
-            if ((pad.pressed & EF2_PAD_CROSS) != 0u) {
+            if (ef2_pad_was_pressed(
+                    &pad,
+                    EF2_PAD_CROSS)) {
                 if (audio_paused) {
                     if (ef2_audio_device_resume() == 0) {
                         audio_paused = 0;
-                        ef2_video_clear(24, 176, 120);
+                        show_audio_state(
+                            audio_paused,
+                            audio_stopped);
                     }
                 } else if (!audio_stopped) {
                     if (ef2_audio_device_pause() == 0) {
                         audio_paused = 1;
-                        ef2_video_clear(32, 96, 224);
+                        show_audio_state(
+                            audio_paused,
+                            audio_stopped);
                     }
                 }
             }
 
-            if ((pad.pressed & EF2_PAD_START) != 0u) {
+            if (ef2_pad_was_pressed(
+                    &pad,
+                    EF2_PAD_START)) {
                 if (audio_stopped) {
                     if (ef2_audio_device_start() == 0) {
                         audio_stopped = 0;
                         audio_paused = 0;
-                        ef2_video_clear(24, 176, 120);
+                        show_audio_state(
+                            audio_paused,
+                            audio_stopped);
                     }
                 } else {
                     if (ef2_audio_device_stop() == 0) {
                         audio_stopped = 1;
                         audio_paused = 0;
-                        ef2_video_clear(112, 40, 48);
+                        show_audio_state(
+                            audio_paused,
+                            audio_stopped);
                     }
                 }
             }
 
-            if ((pad.pressed & EF2_PAD_SQUARE) != 0u)
+            if (ef2_pad_was_pressed(
+                    &pad,
+                    EF2_PAD_SQUARE))
                 (void)ef2_audio_device_flush();
 
-            if ((pad.pressed & EF2_PAD_UP) != 0u) {
-                if (audio_volume <= EF2_AUDIO_VOLUME_MAX - 0x0400u)
-                    audio_volume += 0x0400u;
-                else
-                    audio_volume = EF2_AUDIO_VOLUME_MAX;
+            /*
+             * Held-button diagnostic: keeping the D-pad direction
+             * down repeats the volume step every few successful polls.
+             */
+            if ((pad.frame %
+                 EF2_PAD_HOLD_STEP_POLLS) == 0u) {
+                if (ef2_pad_is_held(
+                        &pad,
+                        EF2_PAD_UP)) {
+                    if (audio_volume <=
+                        EF2_AUDIO_VOLUME_MAX - 0x0100u)
+                        audio_volume += 0x0100u;
+                    else
+                        audio_volume =
+                            EF2_AUDIO_VOLUME_MAX;
 
-                (void)ef2_audio_device_set_volume(audio_volume);
+                    (void)ef2_audio_device_set_volume(
+                        audio_volume);
+                }
+
+                if (ef2_pad_is_held(
+                        &pad,
+                        EF2_PAD_DOWN)) {
+                    if (audio_volume >= 0x0100u)
+                        audio_volume -= 0x0100u;
+                    else
+                        audio_volume = 0;
+
+                    (void)ef2_audio_device_set_volume(
+                        audio_volume);
+                }
             }
 
-            if ((pad.pressed & EF2_PAD_DOWN) != 0u) {
-                if (audio_volume >= 0x0400u)
-                    audio_volume -= 0x0400u;
-                else
-                    audio_volume = 0;
-
-                (void)ef2_audio_device_set_volume(audio_volume);
+            if (show_analog_state(&pad)) {
+                analog_visual_active = 1;
+            } else if (analog_visual_active) {
+                analog_visual_active = 0;
+                show_audio_state(
+                    audio_paused,
+                    audio_stopped);
             }
         }
 
+        if (audio_paused || audio_stopped) {
         if (audio_paused || audio_stopped) {
             ++ef2_boot_counter;
             continue;
@@ -247,7 +361,9 @@ int main(void)
             }
 
             audio_started = 1;
-            ef2_video_clear(24, 176, 120);
+            show_audio_state(
+                audio_paused,
+                audio_stopped);
         }
 
         ++ef2_boot_counter;

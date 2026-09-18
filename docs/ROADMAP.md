@@ -45,6 +45,8 @@
 - [x] in-memory IOP module loading
 - [x] initial controller API and private EF2Pad RPC protocol
 - [x] direct SIO2 polling backend with timeout/reconnect handling
+- [x] held/pressed/released helpers and normalized analog deadzone API
+- [x] best-effort DualShock analog/pressure configuration
 - [ ] validate EF2Pad on real fat/slim PS2 hardware
 - [ ] rumble/actuator support
 - [ ] multitap support

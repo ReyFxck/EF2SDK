@@ -12,6 +12,7 @@ ELF := $(BUILD)/ef2-boot.elf
 MAP := $(BUILD)/ef2-boot.map
 LIB := $(BUILD)/libef2.a
 HOST_AUDIO_TEST := $(BUILD)/audio-rate-test
+HOST_PAD_TEST := $(BUILD)/pad-input-test
 IOP_AUDIO_DIR := src/iop/audio
 IOP_AUDIO_IRX := $(BUILD)/ef2audio.irx
 IOP_AUDIO_C := $(BUILD)/ef2audio_irx.c
@@ -37,6 +38,7 @@ LIB_OBJS := \
     $(BUILD)/audio.o \
     $(BUILD)/audio_iop.o \
     $(BUILD)/ef2audio_irx.o \
+    $(BUILD)/pad.o \
     $(BUILD)/pad_iop.o \
     $(BUILD)/ef2pad_irx.o
 
@@ -70,6 +72,9 @@ $(BUILD)/audio.o: src/ee/audio/audio.c include/ef2/audio.h include/ef2/base.h | 
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/audio_iop.o: src/ee/audio/iop_backend.c include/ef2/audio.h include/ef2/audio_rpc.h include/ef2/sif.h | $(BUILD)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD)/pad.o: src/ee/input/pad.c include/ef2/pad.h include/ef2/base.h | $(BUILD)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD)/pad_iop.o: src/ee/input/iop_backend.c include/ef2/pad.h include/ef2/pad_rpc.h include/ef2/sif.h | $(BUILD)
@@ -108,8 +113,13 @@ $(HOST_AUDIO_TEST): tests/audio_rate_test.c src/ee/audio/audio.c include/ef2/aud
 	$(HOSTCC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude \
 		tests/audio_rate_test.c src/ee/audio/audio.c -o $@
 
-host-test: $(HOST_AUDIO_TEST)
+$(HOST_PAD_TEST): tests/pad_input_test.c src/ee/input/pad.c include/ef2/pad.h include/ef2/base.h | $(BUILD)
+	$(HOSTCC) -std=c11 -O2 -Wall -Wextra -Werror -Iinclude \
+		tests/pad_input_test.c src/ee/input/pad.c -o $@
+
+host-test: $(HOST_AUDIO_TEST) $(HOST_PAD_TEST)
 	$(HOST_AUDIO_TEST)
+	$(HOST_PAD_TEST)
 
 check: $(ELF) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 	@echo "== Undefined symbols =="
@@ -123,7 +133,7 @@ check: $(ELF) $(IOP_AUDIO_IRX) $(IOP_PAD_IRX)
 	@entry=`$(READELF) -h $(ELF) | awk '/Entry point address:/ { print $$4 }'`; \
 	case "$$entry" in 0x100000|0x00100000) ;; *) echo "ERROR: unexpected entry point $$entry"; exit 1 ;; esac
 	@echo "== EF2SDK library symbols =="
-	@for sym in ef2_video_init ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all; do \
+	@for sym in ef2_video_init ef2_audio_rate_converter_init ef2_audio_rate_converter_process_s16 ef2_sif_init ef2_audio_device_init ef2_audio_device_start ef2_pad_init ef2_pad_poll ef2_pad_poll_all ef2_pad_is_held ef2_pad_axis_deadzone; do \
 		if ! $(NM) $(LIB) | grep -q " $$sym$$"; then \
 			echo "ERROR: missing library symbol $$sym"; exit 1; \
 		fi; \

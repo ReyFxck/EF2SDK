@@ -19,6 +19,8 @@ typedef struct {
     ef2_u8 id;
     ef2_u8 timing_profile;
     ef2_u8 stat70_bit;
+    ef2_u8 config_attempted;
+    ef2_u8 reserved0;
 
     ef2_u8 right_x;
     ef2_u8 right_y;
@@ -149,6 +151,182 @@ static int transfer_poll(
 
     *output_size = size;
     return 0;
+}
+
+static int transfer_command(
+    ef2_u32 port,
+    ef2pad_port_state *state,
+    const ef2_u8 *input,
+    ef2_u32 size,
+    ef2_u8 *output)
+{
+    ef2_sio2_result transfer_result = {0, 0, 0};
+    ef2_u8 stat70_before =
+        state->stat70_bit;
+    ef2_u32 i;
+    int result;
+
+    for (i = 0; i < EF2PAD_MAX_PACKET; ++i)
+        output[i] = 0;
+
+    result = ef2_sio2_transfer_pad(
+        port,
+        0,
+        stat70_before,
+        input,
+        size,
+        output,
+        &transfer_result);
+
+    if (result < 0)
+        return result;
+
+    if (stat70_before != 0u)
+        shift_stat70_reply(output, size);
+
+    state->stat70_bit =
+        (ef2_u8)((transfer_result.recv2 >>
+                  (4u + port)) & 1u);
+
+    return 0;
+}
+
+static void config_delay(void)
+{
+    /*
+     * The official-style state machine spreads configuration over time.
+     * A short delay keeps our compact synchronous sequence friendly to
+     * physical controllers without adding a VBlank dependency.
+     */
+    DelayThread(2000);
+}
+
+static int config_reply_is_config(
+    const ef2_u8 *reply,
+    ef2_u32 size)
+{
+    return size >= 3u &&
+           reply[1] == 0xF3u;
+}
+
+static int configure_dualshock(
+    ef2_u32 port,
+    ef2pad_port_state *state)
+{
+    ef2_u8 input[EF2PAD_MAX_PACKET];
+    ef2_u8 output[EF2PAD_MAX_PACKET];
+    ef2_u32 size;
+    ef2_u32 i;
+    int enter_result;
+    int analog_result;
+    int pressure_result;
+    int exit_result;
+
+    size = packet_size_for_id(state->id);
+
+    for (i = 0; i < EF2PAD_MAX_PACKET; ++i)
+        input[i] = 0;
+
+    input[0] = 1u;
+    input[1] = 0x43u;
+    input[2] = 0u;
+    input[3] = 1u;
+
+    enter_result = transfer_command(
+        port,
+        state,
+        input,
+        size,
+        output);
+
+    if (enter_result < 0)
+        return enter_result;
+
+    config_delay();
+
+    for (i = 0; i < EF2PAD_MAX_PACKET; ++i)
+        input[i] = 0;
+
+    input[0] = 1u;
+    input[1] = 0x44u;
+    input[2] = 0u;
+    input[3] = 1u; /* Analog / DualShock mode. */
+    input[4] = 3u; /* Lock mode switch when supported. */
+
+    analog_result = transfer_command(
+        port,
+        state,
+        input,
+        9u,
+        output);
+
+    if (analog_result == 0 &&
+        !config_reply_is_config(output, 9u))
+        analog_result = -20;
+
+    config_delay();
+
+    /*
+     * Enable the 12 pressure values used by DualShock 2.
+     * This is best-effort: DualShock 1 and simpler pads may reject it.
+     */
+    for (i = 0; i < EF2PAD_MAX_PACKET; ++i)
+        input[i] = 0;
+
+    input[0] = 1u;
+    input[1] = 0x4Fu;
+    input[2] = 0u;
+    input[3] = 0xFFu;
+    input[4] = 0xFFu;
+    input[5] = 0x03u;
+
+    pressure_result = transfer_command(
+        port,
+        state,
+        input,
+        9u,
+        output);
+
+    if (pressure_result == 0 &&
+        !config_reply_is_config(output, 9u))
+        pressure_result = -21;
+
+    (void)pressure_result;
+    config_delay();
+
+    for (i = 0; i < EF2PAD_MAX_PACKET; ++i)
+        input[i] = 0;
+
+    input[0] = 1u;
+    input[1] = 0x43u;
+    input[2] = 0u;
+    input[3] = 0u;
+    input[4] = 0x5Au;
+    input[5] = 0x5Au;
+    input[6] = 0x5Au;
+    input[7] = 0x5Au;
+    input[8] = 0x5Au;
+
+    exit_result = transfer_command(
+        port,
+        state,
+        input,
+        9u,
+        output);
+
+    if (analog_result < 0)
+        return analog_result;
+    if (exit_result < 0)
+        return exit_result;
+
+    return 0;
+}
+
+static int should_configure_pad(ef2_u8 id)
+{
+    return id == 0x41u ||
+           id == 0x73u ||
+           id == 0x79u;
 }
 
 static void parse_reply(
@@ -312,6 +490,7 @@ static int poll_port(ef2_u32 port)
         state->connected = 0;
         state->buttons = 0;
         state->id = 0;
+        state->config_attempted = 0;
         state->right_x = 0x80u;
         state->right_y = 0x80u;
         state->left_x = 0x80u;
@@ -348,6 +527,17 @@ static int poll_port(ef2_u32 port)
             reply_size = discovery_size;
             state->id = discovered_id;
         }
+    }
+
+    if (previous_id != 0u &&
+        state->id == 0x41u &&
+        previous_id != 0x41u)
+        state->config_attempted = 0;
+
+    if (!state->config_attempted &&
+        should_configure_pad(state->id)) {
+        state->config_attempted = 1;
+        (void)configure_dualshock(port, state);
     }
 
     state->connected = 1;

@@ -79,6 +79,37 @@ int ef2_pad_poll(
 int ef2_pad_poll_all(
     ef2_pad_state states[EF2_PAD_PORT_COUNT]);
 
+/*
+ * Button convenience helpers.
+ * A multi-button mask only matches when every requested bit matches.
+ */
+int ef2_pad_is_held(
+    const ef2_pad_state *state,
+    ef2_u32 buttons);
+
+int ef2_pad_was_pressed(
+    const ef2_pad_state *state,
+    ef2_u32 buttons);
+
+int ef2_pad_was_released(
+    const ef2_pad_state *state,
+    ef2_u32 buttons);
+
+/* Report capabilities from the current raw controller packet ID. */
+int ef2_pad_has_analog(
+    const ef2_pad_state *state);
+
+int ef2_pad_has_pressure(
+    const ef2_pad_state *state);
+
+/*
+ * Convert a raw 0..255 stick axis to signed -32768..32767.
+ * Values within the symmetric center deadzone return zero.
+ */
+ef2_s16 ef2_pad_axis_deadzone(
+    ef2_u8 raw,
+    ef2_u8 deadzone);
+
 #ifdef __cplusplus
 }
 #endif
