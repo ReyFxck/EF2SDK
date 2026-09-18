@@ -117,3 +117,6 @@
 - [ ] lightweight profiler and GS/DMA timing counters
 - [ ] package/port workflow for modern third-party libraries
 - [ ] compatibility adapters for selected legacy PS2 homebrew APIs
+
+- [ ] revalidate RGBA32/PSMT8/PSMT4 texture draws after alpha.29 DECAL regression fix
+- [ ] revalidate MODULATE crop/alpha path separately

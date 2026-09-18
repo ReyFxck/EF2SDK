@@ -169,3 +169,19 @@ The boot diagnostic is rendered entirely into the hidden back buffer and is
 made visible only by `ef2_video_present()`. Therefore seeing the alpha.29
 diagnostic frame validates the first VSync-synchronized swap in addition to
 the existing GIF DMA and texture tests.
+
+
+## Alpha.29 texture regression isolation
+
+The alpha.28 NetherSX2 test showed a useful split: solid primitives and the
+green zero-fallback GIF DMA indicator remained correct, while every textured
+sprite disappeared. Texture uploads returned success, so the failure was
+isolated to texture sampling/draw state or a semantically wrong VRAM upload.
+
+Alpha.29 restores the exact alpha.25 DECAL draw state for the ordinary
+`ef2_video_draw_texture()` path, while leaving the newer MODULATE/alpha
+region path isolated in `ef2_video_draw_texture_region()`. Indexed PSMT8 and
+PSMT4 textures use the same DECAL diagnostic path with their CLUT state.
+
+The region path also now targets the active draw framebuffer instead of
+hard-coding FRAME_1 base zero, fixing an independent double-buffering bug.

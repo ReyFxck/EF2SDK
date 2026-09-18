@@ -982,7 +982,7 @@ int ef2_video_draw_texture_region(
     ef2_gif_ad(
         &packet[1],
         ef2_gs_pack_frame(
-            0,
+            ef2_video_draw_fbp(),
             (ef2_u8)(ef2_video_width / 64u),
             EF2_GS_PSMCT32,
             0),
@@ -1114,25 +1114,150 @@ int ef2_video_draw_texture(
     ef2_s32 width,
     ef2_s32 height)
 {
+    ef2_gif_qword packet[14] EF2_ALIGN(16);
+    ef2_s32 right;
+    ef2_s32 bottom;
+    ef2_u16 u1;
+    ef2_u16 v1;
+
     if (texture ==
-        (const ef2_video_texture *)0)
+            (const ef2_video_texture *)0 ||
+        !texture->valid ||
+        (texture->psm != EF2_GS_PSMCT32 &&
+         texture->psm != EF2_GS_PSMT8 &&
+         texture->psm != EF2_GS_PSMT4) ||
+        width <= 0 || height <= 0)
         return -1;
 
-    return ef2_video_draw_texture_region(
-        texture,
+    if (x < 0 || y < 0 ||
+        x + width > (ef2_s32)ef2_video_width ||
+        y + height > (ef2_s32)ef2_video_height)
+        return -2;
+
+    right = x + width;
+    bottom = y + height;
+    u1 = (ef2_u16)(texture->width << 4);
+    v1 = (ef2_u16)(texture->height << 4);
+
+    packet[0].lo =
+        ef2_gif_pack_tag(
+            13, 1, 0, 0,
+            EF2_GIF_FLG_PACKED, 1);
+    packet[0].hi = EF2_GIF_REG_AD;
+
+    ef2_gif_ad(
+        &packet[1],
+        ef2_gs_pack_frame(
+            ef2_video_draw_fbp(),
+            (ef2_u8)(ef2_video_width / 64u),
+            EF2_GS_PSMCT32,
+            0),
+        EF2_GS_ADDR_FRAME_1);
+
+    ef2_gif_ad(
+        &packet[2],
+        ef2_gs_pack_xyoffset(0, 0),
+        EF2_GS_ADDR_XYOFFSET_1);
+
+    ef2_gif_ad(
+        &packet[3],
+        ef2_gs_pack_scissor(
+            0,
+            (ef2_u16)(ef2_video_width - 1u),
+            0,
+            (ef2_u16)(ef2_video_height - 1u)),
+        EF2_GS_ADDR_SCISSOR_1);
+
+    ef2_gif_ad(
+        &packet[4],
         0,
+        EF2_GS_ADDR_TEST_1);
+
+    if (texture->indexed) {
+        ef2_gif_ad(
+            &packet[5],
+            ef2_gs_pack_tex0_clut(
+                texture->vram_address,
+                texture->buffer_width,
+                texture->psm,
+                texture->width_log2,
+                texture->height_log2,
+                1,
+                1,
+                texture->clut_address,
+                texture->clut_psm,
+                0,
+                0,
+                1),
+            EF2_GS_ADDR_TEX0_1);
+    } else {
+        ef2_gif_ad(
+            &packet[5],
+            ef2_gs_pack_tex0(
+                texture->vram_address,
+                texture->buffer_width,
+                texture->psm,
+                texture->width_log2,
+                texture->height_log2,
+                1,
+                1),
+            EF2_GS_ADDR_TEX0_1);
+    }
+
+    ef2_gif_ad(
+        &packet[6],
         0,
-        texture->width,
-        texture->height,
-        x,
-        y,
-        width,
-        height,
-        0x80,
-        0x80,
-        0x80,
-        0x80,
-        0);
+        EF2_GS_ADDR_TEX1_1);
+
+    /*
+     * This is deliberately the alpha.25 validated state:
+     * PRIM owns TME/FST and TEX0 uses DECAL.
+     */
+    ef2_gif_ad(
+        &packet[7],
+        1,
+        EF2_GS_ADDR_PRMODECONT);
+
+    ef2_gif_ad(
+        &packet[8],
+        ef2_gs_pack_prim_ex(
+            EF2_GS_PRIM_SPRITE,
+            0, 1, 0, 0, 0, 1, 0, 0),
+        EF2_GS_ADDR_PRIM);
+
+    ef2_gif_ad(
+        &packet[9],
+        ef2_gs_pack_rgbaq(
+            0x80, 0x80, 0x80, 0x80),
+        EF2_GS_ADDR_RGBAQ);
+
+    ef2_gif_ad(
+        &packet[10],
+        ef2_gs_pack_uv(0, 0),
+        EF2_GS_ADDR_UV);
+
+    ef2_gif_ad(
+        &packet[11],
+        ef2_gs_pack_xyz(
+            (ef2_u16)((ef2_u32)x << 4),
+            (ef2_u16)((ef2_u32)y << 4),
+            0),
+        EF2_GS_ADDR_XYZ2);
+
+    ef2_gif_ad(
+        &packet[12],
+        ef2_gs_pack_uv(u1, v1),
+        EF2_GS_ADDR_UV);
+
+    ef2_gif_ad(
+        &packet[13],
+        ef2_gs_pack_xyz(
+            (ef2_u16)((ef2_u32)right << 4),
+            (ef2_u16)((ef2_u32)bottom << 4),
+            0),
+        EF2_GS_ADDR_XYZ2);
+
+    return ef2_video_submit_qwords(packet, 14);
 }
 
 int ef2_video_init(
