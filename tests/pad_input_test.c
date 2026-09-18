@@ -18,6 +18,7 @@ int main(void)
 
     state.connected = 1;
     state.raw_id = 0x79u;
+    state.rumble_supported = 1u;
     state.buttons = EF2_PAD_CROSS | EF2_PAD_UP;
     state.pressed = EF2_PAD_CROSS;
     state.released = EF2_PAD_SQUARE;
@@ -46,6 +47,9 @@ int main(void)
     failed |= expect(
         ef2_pad_has_pressure(&state),
         "0x79 pressure");
+    failed |= expect(
+        ef2_pad_has_rumble(&state),
+        "rumble capability");
 
     state.raw_id = 0x73u;
     failed |= expect(

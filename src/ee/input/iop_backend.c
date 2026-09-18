@@ -21,13 +21,10 @@ static void zero_bytes(void *ptr, ef2_u32 size)
         bytes[i] = 0;
 }
 
-static int pad_rpc_call(
-    ef2_s32 function,
-    ef2_u32 port_mask)
+static int pad_rpc_exchange(ef2_s32 function)
 {
     int result;
 
-    g_request.port_mask = port_mask;
     zero_bytes(&g_reply, sizeof(g_reply));
 
     result = ef2_sif_call(
@@ -42,6 +39,16 @@ static int pad_rpc_call(
         return result;
 
     return g_reply.result;
+}
+
+static int pad_rpc_call(
+    ef2_s32 function,
+    ef2_u32 port_mask)
+{
+    zero_bytes(&g_request, sizeof(g_request));
+    g_request.port_mask = port_mask;
+
+    return pad_rpc_exchange(function);
 }
 
 static void copy_state(
@@ -71,6 +78,10 @@ static void copy_state(
     dest->raw_id = source->raw_id;
     dest->mode = (ef2_u8)(source->raw_id >> 4);
     dest->timing_profile = source->timing_profile;
+    dest->rumble_supported = source->rumble_supported;
+    dest->rumble_small = source->rumble_small;
+    dest->rumble_large = source->rumble_large;
+    dest->reserved0 = 0;
 
     dest->right_x = source->right_x;
     dest->right_y = source->right_y;
@@ -207,4 +218,27 @@ int ef2_pad_poll_all(
     }
 
     return 0;
+}
+
+int ef2_pad_set_rumble(
+    ef2_u32 port,
+    ef2_u8 small_motor,
+    ef2_u8 large_motor)
+{
+    if (!g_pad_bound ||
+        port >= EF2_PAD_PORT_COUNT ||
+        small_motor > 1u)
+        return -1;
+
+    zero_bytes(&g_request, sizeof(g_request));
+    g_request.port_mask = 1u << port;
+    g_request.small_motor[port] = small_motor;
+    g_request.large_motor[port] = large_motor;
+
+    return pad_rpc_exchange(EF2_PAD_RPC_SET_RUMBLE);
+}
+
+int ef2_pad_stop_rumble(ef2_u32 port)
+{
+    return ef2_pad_set_rumble(port, 0, 0);
 }

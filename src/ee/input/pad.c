@@ -58,6 +58,14 @@ int ef2_pad_has_pressure(
     return (state->raw_id & 0x0Fu) >= 9u;
 }
 
+int ef2_pad_has_rumble(
+    const ef2_pad_state *state)
+{
+    return state != (const ef2_pad_state *)0 &&
+           state->connected &&
+           state->rumble_supported != 0u;
+}
+
 ef2_s16 ef2_pad_axis_deadzone(
     ef2_u8 raw,
     ef2_u8 deadzone)

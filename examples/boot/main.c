@@ -183,6 +183,8 @@ int main(void)
     ef2_u32 audio_volume = 0x3000u;
     ef2_pad_state pad;
     ef2_s32 analog_visual_active = 0;
+    ef2_u8 rumble_small = 0;
+    ef2_u8 rumble_large = 0;
 
     ef2_boot_counter = 1;
     ef2_audio_status = -1;
@@ -308,6 +310,35 @@ int main(void)
 
                     (void)ef2_audio_device_set_volume(
                         audio_volume);
+                }
+            }
+
+            {
+                ef2_u8 desired_small =
+                    ef2_pad_is_held(
+                        &pad,
+                        EF2_PAD_R1) ? 1u : 0u;
+                ef2_u8 desired_large = 0;
+
+                if (ef2_pad_is_held(
+                        &pad,
+                        EF2_PAD_R2)) {
+                    if (ef2_pad_has_pressure(&pad) &&
+                        pad.pressure_r2 != 0u)
+                        desired_large = pad.pressure_r2;
+                    else
+                        desired_large = 0xFFu;
+                }
+
+                if (desired_small != rumble_small ||
+                    desired_large != rumble_large) {
+                    if (ef2_pad_set_rumble(
+                            0,
+                            desired_small,
+                            desired_large) == 0) {
+                        rumble_small = desired_small;
+                        rumble_large = desired_large;
+                    }
                 }
             }
 

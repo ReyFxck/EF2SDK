@@ -7,11 +7,15 @@
 
 enum {
     EF2_PAD_RPC_INIT = 0,
-    EF2_PAD_RPC_POLL = 1
+    EF2_PAD_RPC_POLL = 1,
+    EF2_PAD_RPC_SET_RUMBLE = 2
 };
 
 typedef struct {
     ef2_u32 port_mask;
+    ef2_u8 small_motor[2];
+    ef2_u8 large_motor[2];
+    ef2_u8 reserved[4];
 } ef2_pad_rpc_request;
 
 typedef struct {
@@ -23,7 +27,9 @@ typedef struct {
     ef2_u8 connected;
     ef2_u8 raw_id;
     ef2_u8 timing_profile;
-    ef2_u8 reserved0;
+    ef2_u8 rumble_supported;
+    ef2_u8 rumble_small;
+    ef2_u8 rumble_large;
 
     ef2_u8 right_x;
     ef2_u8 right_y;

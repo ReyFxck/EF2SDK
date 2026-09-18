@@ -20,7 +20,9 @@ typedef struct {
     ef2_u8 timing_profile;
     ef2_u8 stat70_bit;
     ef2_u8 config_attempted;
-    ef2_u8 reserved0;
+    ef2_u8 rumble_supported;
+    ef2_u8 rumble_small;
+    ef2_u8 rumble_large;
 
     ef2_u8 right_x;
     ef2_u8 right_y;
@@ -127,6 +129,17 @@ static int transfer_poll(
     input[1] = 0x42u;
     input[2] = 0u;
 
+    if (size >= 9u &&
+        id_hint != 0u &&
+        g_ports[port].rumble_supported) {
+        input[3] = g_ports[port].rumble_small ? 1u : 0u;
+        input[4] = g_ports[port].rumble_large;
+        input[5] = 0xFFu;
+        input[6] = 0xFFu;
+        input[7] = 0xFFu;
+        input[8] = 0xFFu;
+    }
+
     result = ef2_sio2_transfer_pad(
         port,
         timing_profile,
@@ -220,6 +233,7 @@ static int configure_dualshock(
     int enter_result;
     int analog_result;
     int pressure_result;
+    int align_result;
     int exit_result;
 
     size = packet_size_for_id(state->id);
@@ -292,6 +306,38 @@ static int configure_dualshock(
         pressure_result = -21;
 
     (void)pressure_result;
+    config_delay();
+
+    /*
+     * Map actuator 0 to the small on/off motor and actuator 1 to the
+     * large 0..255 motor. Unsupported pads simply reject this command.
+     */
+    for (i = 0; i < EF2PAD_MAX_PACKET; ++i)
+        input[i] = 0;
+
+    input[0] = 1u;
+    input[1] = 0x4Du;
+    input[2] = 0u;
+    input[3] = 0u;
+    input[4] = 1u;
+    input[5] = 0xFFu;
+    input[6] = 0xFFu;
+    input[7] = 0xFFu;
+    input[8] = 0xFFu;
+
+    align_result = transfer_command(
+        port,
+        state,
+        input,
+        9u,
+        output);
+
+    if (align_result == 0 &&
+        config_reply_is_config(output, 9u))
+        state->rumble_supported = 1u;
+    else
+        state->rumble_supported = 0u;
+
     config_delay();
 
     for (i = 0; i < EF2PAD_MAX_PACKET; ++i)
@@ -491,6 +537,9 @@ static int poll_port(ef2_u32 port)
         state->buttons = 0;
         state->id = 0;
         state->config_attempted = 0;
+        state->rumble_supported = 0;
+        state->rumble_small = 0;
+        state->rumble_large = 0;
         state->right_x = 0x80u;
         state->right_y = 0x80u;
         state->left_x = 0x80u;
@@ -564,7 +613,9 @@ static void fill_rpc_port(
     dest->connected = source->connected;
     dest->raw_id = source->id;
     dest->timing_profile = source->timing_profile;
-    dest->reserved0 = 0;
+    dest->rumble_supported = source->rumble_supported;
+    dest->rumble_small = source->rumble_small;
+    dest->rumble_large = source->rumble_large;
 
     dest->right_x = source->right_x;
     dest->right_y = source->right_y;
@@ -602,6 +653,35 @@ static void *rpc_handler(
             for (port = 0; port < EF2PAD_PORT_COUNT; ++port) {
                 if ((request->port_mask & (1u << port)) != 0u)
                     (void)poll_port(port);
+            }
+            break;
+
+        case EF2_PAD_RPC_SET_RUMBLE:
+            if (length < (int)sizeof(*request)) {
+                g_rpc_reply.result = -1;
+                break;
+            }
+
+            for (port = 0; port < EF2PAD_PORT_COUNT; ++port) {
+                ef2pad_port_state *state = &g_ports[port];
+
+                if ((request->port_mask & (1u << port)) == 0u)
+                    continue;
+
+                if (!state->connected) {
+                    g_rpc_reply.result = -2;
+                    continue;
+                }
+
+                if (!state->rumble_supported) {
+                    g_rpc_reply.result = -3;
+                    continue;
+                }
+
+                state->rumble_small =
+                    request->small_motor[port] ? 1u : 0u;
+                state->rumble_large =
+                    request->large_motor[port];
             }
             break;
 

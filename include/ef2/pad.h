@@ -50,6 +50,10 @@ typedef struct {
     ef2_u8 raw_id;
     ef2_u8 mode;
     ef2_u8 timing_profile;
+    ef2_u8 rumble_supported;
+    ef2_u8 rumble_small;
+    ef2_u8 rumble_large;
+    ef2_u8 reserved0;
 
     ef2_u8 right_x;
     ef2_u8 right_y;
@@ -80,6 +84,18 @@ int ef2_pad_poll_all(
     ef2_pad_state states[EF2_PAD_PORT_COUNT]);
 
 /*
+ * Configure DualShock actuators.
+ * small_motor is 0/1; large_motor is 0..255.
+ * The values are transmitted with the next successful poll.
+ */
+int ef2_pad_set_rumble(
+    ef2_u32 port,
+    ef2_u8 small_motor,
+    ef2_u8 large_motor);
+
+int ef2_pad_stop_rumble(ef2_u32 port);
+
+/*
  * Button convenience helpers.
  * A multi-button mask only matches when every requested bit matches.
  */
@@ -100,6 +116,9 @@ int ef2_pad_has_analog(
     const ef2_pad_state *state);
 
 int ef2_pad_has_pressure(
+    const ef2_pad_state *state);
+
+int ef2_pad_has_rumble(
     const ef2_pad_state *state);
 
 /*

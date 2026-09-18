@@ -104,3 +104,23 @@ volume changes while held. Moving either analog stick changes the framebuffer
 color: left X/Y control red/green, right X controls blue, and right Y controls
 brightness. Returning both sticks to their deadzones restores the normal
 audio-state color.
+
+
+## Alpha.20 rumble
+
+EF2Pad now configures the standard DualShock actuator alignment directly with
+SIO2: actuator 0 is mapped to the small on/off motor and actuator 1 to the
+large 0..255 motor. The command is best-effort and does not make controller
+initialization fail when a digital pad or clone does not support actuators.
+
+`ef2_pad_set_rumble()` stores the requested motor values in the IOP service.
+They are folded into the next normal `0x42` pad poll, so rumble does not add a
+second SIO2 transaction to every input frame. `ef2_pad_stop_rumble()` clears
+both motors.
+
+The public pad state exposes whether actuator alignment succeeded and the
+currently requested motor values.
+
+The alpha.20 smoke test uses held R1 for the small motor and held R2 for the
+large motor. On a pressure-capable DualShock 2, R2 pressure controls the large
+motor intensity; otherwise R2 falls back to full intensity.

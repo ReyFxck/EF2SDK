@@ -48,7 +48,8 @@
 - [x] held/pressed/released helpers and normalized analog deadzone API
 - [x] best-effort DualShock analog/pressure configuration
 - [ ] validate EF2Pad on real fat/slim PS2 hardware
-- [ ] rumble/actuator support
+- [x] initial rumble/actuator API and direct SIO2 actuator alignment
+- [ ] validate rumble on real DualShock 1/2 and common clones
 - [ ] multitap support
 - [ ] memory card access
 - [ ] USB mass storage path
