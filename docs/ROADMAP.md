@@ -99,6 +99,8 @@
 - [x] minimal setjmp/longjmp compatibility for port error recovery
 - [x] abort fallback routed through EF2 runtime exit
 - [ ] formatted I/O / printf-family strategy
+  - [x] bounded buffer-only `snprintf`/`vsnprintf` integer/string core
+  - [ ] stream-backed `printf`/`fprintf` output sink
 - [ ] C++ runtime strategy
 - [x] initial upstream zlib 1.3.2 in-memory core port
 - [x] host compress/uncompress regression test + target freestanding link test
