@@ -151,3 +151,25 @@ rule.
 
 The standard `abort()` compatibility symbol is also provided and maps to
 `ef2_runtime_abort()`, which exits through the same EE KExit path.
+
+
+## Bounded formatted output
+
+EF2SDK now has a buffer-only formatting layer before it has a full stdio
+stream model. The native API exports `ef2_snprintf()` and
+`ef2_vsnprintf()`; the opt-in compatibility headers expose the standard
+`snprintf()` and `vsnprintf()` names.
+
+The initial formatter supports strings, characters, signed/unsigned decimal,
+lower/upper hexadecimal, pointers, `%%`, field width, zero padding and the
+`l`, `ll` and `z` integer length modifiers. It deliberately does not yet
+claim floating-point, precision, alternate-form flags or FILE-backed output.
+
+Integer conversion avoids runtime multiply/divide operations in the formatting
+core. This follows the same freestanding rule used by the heap: the R5900
+bootstrap compiler must not be allowed to introduce accidental libgcc helper
+dependencies into `libef2.a`.
+
+Host CI verifies truncation semantics, size-zero measurement, 64-bit integer
+formatting and the standard compatibility aliases. A later stdio layer can
+reuse this core once EF2SDK defines explicit console/file output sinks.
