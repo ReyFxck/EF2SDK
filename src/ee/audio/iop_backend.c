@@ -7,6 +7,7 @@ extern const ef2_u32 ef2audio_irx_size;
 
 static ef2_sif_rpc_client g_audio_client;
 static ef2_audio_rpc_submit g_submit_buffer EF2_ALIGN(64);
+static ef2_audio_rpc_control g_control_buffer EF2_ALIGN(64);
 static ef2_audio_rpc_reply g_reply_buffer EF2_ALIGN(64);
 static ef2_s32 g_audio_bound;
 
@@ -29,6 +30,27 @@ static int audio_rpc_simple(ef2_s32 function)
         function,
         (void *)0,
         0,
+        &g_reply_buffer,
+        sizeof(g_reply_buffer));
+
+    if (result < 0)
+        return result;
+
+    return g_reply_buffer.result;
+}
+
+static int audio_rpc_control(ef2_s32 function, ef2_u32 value)
+{
+    int result;
+
+    g_control_buffer.value = value;
+    audio_zero(&g_reply_buffer, sizeof(g_reply_buffer));
+
+    result = ef2_sif_call(
+        &g_audio_client,
+        function,
+        &g_control_buffer,
+        sizeof(g_control_buffer),
         &g_reply_buffer,
         sizeof(g_reply_buffer));
 
@@ -157,6 +179,54 @@ int ef2_audio_device_start(void)
     return audio_rpc_simple(EF2_AUDIO_RPC_START);
 }
 
+int ef2_audio_device_pause(void)
+{
+    if (!g_audio_bound)
+        return -1;
+
+    return audio_rpc_simple(EF2_AUDIO_RPC_PAUSE);
+}
+
+int ef2_audio_device_resume(void)
+{
+    if (!g_audio_bound)
+        return -1;
+
+    return audio_rpc_simple(EF2_AUDIO_RPC_RESUME);
+}
+
+int ef2_audio_device_stop(void)
+{
+    if (!g_audio_bound)
+        return -1;
+
+    return audio_rpc_simple(EF2_AUDIO_RPC_STOP);
+}
+
+int ef2_audio_device_flush(void)
+{
+    if (!g_audio_bound)
+        return -1;
+
+    return audio_rpc_simple(EF2_AUDIO_RPC_FLUSH);
+}
+
+int ef2_audio_device_set_volume(ef2_u32 volume)
+{
+    if (!g_audio_bound || volume > EF2_AUDIO_VOLUME_MAX)
+        return -1;
+
+    return audio_rpc_control(EF2_AUDIO_RPC_SET_VOLUME, volume);
+}
+
+int ef2_audio_device_set_latency_ms(ef2_u32 latency_ms)
+{
+    if (!g_audio_bound || latency_ms == 0)
+        return -1;
+
+    return audio_rpc_control(EF2_AUDIO_RPC_SET_LATENCY, latency_ms);
+}
+
 int ef2_audio_device_get_stats(ef2_audio_device_stats *stats)
 {
     int result;
@@ -172,6 +242,12 @@ int ef2_audio_device_get_stats(ef2_audio_device_stats *stats)
     stats->capacity_frames = g_reply_buffer.capacity_frames;
     stats->underruns = g_reply_buffer.underruns;
     stats->overruns = g_reply_buffer.overruns;
+    stats->latency_ms = g_reply_buffer.latency_ms;
+    stats->volume = g_reply_buffer.volume;
+    stats->started =
+        (g_reply_buffer.flags & EF2_AUDIO_RPC_FLAG_STARTED) != 0;
+    stats->paused =
+        (g_reply_buffer.flags & EF2_AUDIO_RPC_FLAG_PAUSED) != 0;
 
     return 0;
 }

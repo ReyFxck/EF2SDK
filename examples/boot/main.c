@@ -122,6 +122,13 @@ int main(void)
             ++ef2_boot_counter;
     }
 
+    if (ef2_audio_device_set_latency_ms(43u) != 0 ||
+        ef2_audio_device_set_volume(0x3000u) != 0) {
+        ef2_video_clear(220, 40, 48);
+        for (;;)
+            ++ef2_boot_counter;
+    }
+
     if (ef2_audio_rate_converter_init(
             &converter,
             EF2_MELODY_RATE,

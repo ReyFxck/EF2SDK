@@ -331,3 +331,20 @@ The IOP ring is reduced from 8192 to 4096 stereo frames (about 85 ms at
 frames (about 43 ms). This cuts IOP RAM use and startup latency while retaining
 multiple SPU2 refill blocks of buffering. Underrun/overrun counters remain
 available through the existing stats call.
+
+
+## Alpha.16: playback controls and configurable latency
+
+EF2Audio now exposes runtime controls for volume, pause/resume, stop, flush
+and target queue latency. The IOP ring remains physically 4096 stereo frames,
+while the effective queue limit can be reduced at runtime in 512-frame SPU2
+block increments.
+
+Pause preserves queued PCM and feeds silence to SPU2 without incrementing the
+underrun counter. Stop halts the block transfer but preserves the queue, while
+flush explicitly discards queued PCM. Volume is expressed in native SPU2
+units from 0 through 0x3fff.
+
+The stats RPC now also reports the effective latency, current volume and
+started/paused state. The smoke test requests an approximately 43 ms queue and
+uses a 0x3000 output volume, exercising the new control path before playback.

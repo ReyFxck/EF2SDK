@@ -36,6 +36,9 @@ static int g_rpc_ready_sema = -1;
 static int g_play_thread = -1;
 static int g_initialized;
 static int g_started;
+static int g_paused;
+static ef2_u32 g_volume = EF2_AUDIO_VOLUME_MAX;
+static ef2_u32 g_queue_limit_frames = EF2AUDIO_RING_FRAMES;
 
 static void clear_bytes(void *ptr, ef2_u32 size)
 {
@@ -58,9 +61,10 @@ static int create_semaphore(int initial, int max)
     return CreateSema(&sema);
 }
 
-static void update_volume(int audible)
+static void update_volume(void)
 {
-    int volume = audible ? EF2AUDIO_MAX_VOLUME : 0;
+    int audible = g_started && !g_paused;
+    int volume = audible ? (int)g_volume : 0;
 
     sceSdSetParam(EF2AUDIO_SD_CORE_1 | SD_PARAM_AVOLL, 0x7FFF);
     sceSdSetParam(EF2AUDIO_SD_CORE_1 | SD_PARAM_AVOLR, 0x7FFF);
@@ -117,9 +121,13 @@ static void fill_spu_block(unsigned char *block)
 
     WaitSema(g_ring_mutex);
 
-    take = g_queued_frames;
-    if (take > EF2AUDIO_BLOCK_FRAMES)
-        take = EF2AUDIO_BLOCK_FRAMES;
+    if (g_paused) {
+        take = 0;
+    } else {
+        take = g_queued_frames;
+        if (take > EF2AUDIO_BLOCK_FRAMES)
+            take = EF2AUDIO_BLOCK_FRAMES;
+    }
 
     for (i = 0; i < EF2AUDIO_BLOCK_FRAMES; ++i) {
         ef2_s16 left = 0;
@@ -142,7 +150,7 @@ static void fill_spu_block(unsigned char *block)
         g_queued_frames -= take;
     }
 
-    if (take < EF2AUDIO_BLOCK_FRAMES)
+    if (!g_paused && take < EF2AUDIO_BLOCK_FRAMES)
         ++g_underruns;
 
     SignalSema(g_ring_mutex);
@@ -203,7 +211,7 @@ static int audio_initialize(void)
     g_underruns = 0;
     g_overruns = 0;
 
-    update_volume(0);
+    update_volume();
     sceSdSetTransCallback(
         EF2AUDIO_BLOCK_DMA_CHANNEL,
         (void *)transfer_complete);
@@ -243,7 +251,10 @@ static int audio_submit(
         ef2_u32 i;
 
         WaitSema(g_ring_mutex);
-        space = EF2AUDIO_RING_FRAMES - g_queued_frames;
+        if (g_queued_frames >= g_queue_limit_frames)
+            space = 0;
+        else
+            space = g_queue_limit_frames - g_queued_frames;
 
         if (space == 0) {
             ++g_overruns;
@@ -290,7 +301,7 @@ static int audio_start(void)
 
     clear_bytes(g_spu_buffer, sizeof(g_spu_buffer));
     FlushDcache();
-    update_volume(1);
+    update_volume();
 
     transfer_result = sceSdBlockTrans(
         EF2AUDIO_BLOCK_DMA_CHANNEL,
@@ -300,11 +311,111 @@ static int audio_start(void)
         0);
 
     if (transfer_result < 0) {
-        update_volume(0);
+        g_started = 0;
+        update_volume();
         return -2;
     }
 
     g_started = 1;
+    g_paused = 0;
+    update_volume();
+    return 0;
+}
+
+static int audio_pause(void)
+{
+    if (!g_initialized || !g_started)
+        return -1;
+
+    g_paused = 1;
+    update_volume();
+    return 0;
+}
+
+static int audio_resume(void)
+{
+    if (!g_initialized || !g_started)
+        return -1;
+
+    g_paused = 0;
+    update_volume();
+    return 0;
+}
+
+static int audio_stop(void)
+{
+    int result;
+
+    if (!g_initialized)
+        return -1;
+
+    if (!g_started) {
+        g_paused = 0;
+        update_volume();
+        return 0;
+    }
+
+    result = sceSdBlockTrans(
+        EF2AUDIO_BLOCK_DMA_CHANNEL,
+        SD_TRANS_STOP,
+        0,
+        0,
+        0);
+
+    if (result < 0)
+        return -2;
+
+    g_started = 0;
+    g_paused = 0;
+    update_volume();
+    return 0;
+}
+
+static int audio_flush(void)
+{
+    WaitSema(g_ring_mutex);
+
+    g_read_frame = 0;
+    g_write_frame = 0;
+    g_queued_frames = 0;
+
+    SignalSema(g_ring_mutex);
+    SignalSema(g_space_sema);
+
+    return 0;
+}
+
+static int audio_set_volume(ef2_u32 volume)
+{
+    if (volume > EF2AUDIO_MAX_VOLUME)
+        return -1;
+
+    g_volume = volume;
+    update_volume();
+    return 0;
+}
+
+static int audio_set_latency_ms(ef2_u32 latency_ms)
+{
+    ef2_u32 frames;
+
+    if (latency_ms == 0 || latency_ms > 1000u)
+        return -1;
+
+    frames = latency_ms * 48u;
+    frames =
+        ((frames + EF2AUDIO_BLOCK_FRAMES - 1u) /
+         EF2AUDIO_BLOCK_FRAMES) *
+        EF2AUDIO_BLOCK_FRAMES;
+
+    if (frames < EF2AUDIO_BLOCK_FRAMES)
+        frames = EF2AUDIO_BLOCK_FRAMES;
+    if (frames > EF2AUDIO_RING_FRAMES)
+        frames = EF2AUDIO_RING_FRAMES;
+
+    g_queue_limit_frames = frames;
+    SignalSema(g_space_sema);
+
     return 0;
 }
 
@@ -312,9 +423,18 @@ static void fill_reply(int result)
 {
     g_rpc_reply.result = result;
     g_rpc_reply.queued_frames = g_queued_frames;
-    g_rpc_reply.capacity_frames = EF2AUDIO_RING_FRAMES;
+    g_rpc_reply.capacity_frames = g_queue_limit_frames;
     g_rpc_reply.underruns = g_underruns;
     g_rpc_reply.overruns = g_overruns;
+    g_rpc_reply.latency_ms =
+        (g_queue_limit_frames * 1000u + 47999u) / 48000u;
+    g_rpc_reply.volume = g_volume;
+    g_rpc_reply.flags = 0;
+
+    if (g_started)
+        g_rpc_reply.flags |= EF2_AUDIO_RPC_FLAG_STARTED;
+    if (g_paused)
+        g_rpc_reply.flags |= EF2_AUDIO_RPC_FLAG_PAUSED;
 }
 
 static void *rpc_handler(
@@ -362,6 +482,46 @@ static void *rpc_handler(
         case EF2_AUDIO_RPC_STATS:
             result = 0;
             break;
+
+        case EF2_AUDIO_RPC_SET_VOLUME:
+        {
+            ef2_audio_rpc_control *control =
+                (ef2_audio_rpc_control *)buffer;
+
+            if (length < (int)sizeof(*control))
+                result = -12;
+            else
+                result = audio_set_volume(control->value);
+            break;
+        }
+
+        case EF2_AUDIO_RPC_PAUSE:
+            result = audio_pause();
+            break;
+
+        case EF2_AUDIO_RPC_RESUME:
+            result = audio_resume();
+            break;
+
+        case EF2_AUDIO_RPC_STOP:
+            result = audio_stop();
+            break;
+
+        case EF2_AUDIO_RPC_FLUSH:
+            result = audio_flush();
+            break;
+
+        case EF2_AUDIO_RPC_SET_LATENCY:
+        {
+            ef2_audio_rpc_control *control =
+                (ef2_audio_rpc_control *)buffer;
+
+            if (length < (int)sizeof(*control))
+                result = -13;
+            else
+                result = audio_set_latency_ms(control->value);
+            break;
+        }
 
         default:
             result = -100;

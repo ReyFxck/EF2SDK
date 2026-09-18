@@ -22,6 +22,7 @@ The project starts from a deliberately small target: boot a freestanding EE ELF 
 - a minimal independent EE SIFCMD/RPC client and in-memory IRX loader;
 - an `ef2audio.irx` service with its own IOP ring buffer and private RPC protocol;
 - an audible generated 32 kHz -> 48 kHz melody smoke test;
+- EF2Audio runtime volume, pause/resume, stop, flush, stats and configurable queue latency;
 - CI builds for every push and pull request;
 - automatic packaged artifacts;
 - automatic GitHub Releases for `v*` tags;
