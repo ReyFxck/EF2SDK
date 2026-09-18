@@ -291,6 +291,14 @@ static int poll_port(ef2_u32 port)
                 reply,
                 &reply_size);
         }
+
+        if (result < 0) {
+            result = discover_pad(
+                port,
+                state,
+                reply,
+                &reply_size);
+        }
     } else {
         result = discover_pad(
             port,
