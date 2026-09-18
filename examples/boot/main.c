@@ -1,5 +1,6 @@
 #include <ef2/audio.h>
 #include <ef2/base.h>
+#include <ef2/crash.h>
 #include <ef2/debug.h>
 #include <ef2/pad.h>
 #include <ef2/video.h>
@@ -334,8 +335,24 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.37 start argc=%d\n",
+        "alpha.38 start argc=%d\n",
         argc);
+
+    {
+        int crash_result =
+            ef2_crash_install();
+
+        (void)ef2_debug_printf(
+            "CRASH",
+            "install=%d active=%d\n",
+            crash_result,
+            ef2_crash_is_installed());
+
+        if (crash_result != 0) {
+            for (;;)
+                ++ef2_boot_counter;
+        }
+    }
 
     ef2_video_status = ef2_video_init(&video);
 
@@ -599,6 +616,22 @@ int main(int argc, char **argv)
                     EF2_PAD_CIRCLE)) {
                 show_color_and_present(160, 64, 224);
                 analog_visual_active = 1;
+            }
+
+            if (pad.connected &&
+                ef2_pad_is_held(
+                    &pad,
+                    EF2_PAD_SELECT |
+                    EF2_PAD_L1 |
+                    EF2_PAD_R1) &&
+                ef2_pad_was_pressed(
+                    &pad,
+                    EF2_PAD_TRIANGLE)) {
+                (void)ef2_debug_printf(
+                    "CRASH",
+                    "manual trap requested\n");
+
+                ef2_crash_trigger_test();
             }
 
             if (pad.connected) {

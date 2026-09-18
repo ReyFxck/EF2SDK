@@ -60,3 +60,30 @@ usage, total bytes, serial status and serial failures.
 The boot smoke test now records subsystem milestones, video DMA/fallback state,
 remaining texture VRAM, audio initialization/configuration, pad initialization,
 resampler setup and audio start/pause/resume/stop events.
+
+
+## Alpha.38 crash diagnostics
+
+EF2SDK now has an opt-in level-1 crash handler installed with the EE kernel's
+vector syscalls. `ef2_crash_install()` hooks TLB refill causes 1..3 and
+common synchronous causes 4..7 and 10..13.
+
+The low-level vector switches to a dedicated 8 KiB emergency stack and
+captures the low 64 bits of all general registers plus Status, Cause, EPC,
+ErrorEPC and BadVAddr before calling C code. It never attempts to resume the
+faulting instruction.
+
+Crash reporting has two independent paths:
+
+- a raw postmortem record is appended directly to the always-on RAM log and
+  mirrored to SIO only when the bounded SIO mirror is active;
+- when the video subsystem is already initialized, a dark-red framebuffer
+  screen shows EXC/CAUSE/EPC/BADV/SP/RA/GP and recent RAM-log text.
+
+The crash screen intentionally disables double buffering and uses a small
+CPU-generated 320x224 RGBA32 diagnostic texture so it does not depend on a
+font library or heap allocation.
+
+The smoke test exposes a deliberate trap for emulator validation:
+hold SELECT + L1 + R1 and press TRIANGLE. This calls
+`ef2_crash_trigger_test()`, which raises ExcCode 13 (Trap).

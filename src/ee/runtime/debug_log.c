@@ -34,14 +34,11 @@ static void ring_write(
     }
 }
 
-static ef2_s32 debug_sink_write(
-    void *context,
+ef2_s32 ef2_debug_write_raw(
     const char *data,
     ef2_size_t size)
 {
     ef2_s32 serial_result;
-
-    (void)context;
 
     if (data == (const char *)0)
         return -1;
@@ -66,11 +63,21 @@ static ef2_s32 debug_sink_write(
     if (size > (ef2_size_t)0x7FFFFFFFu)
         return 0x7FFFFFFF;
 
+    return (ef2_s32)size;
+}
+
+static ef2_s32 debug_sink_write(
+    void *context,
+    const char *data,
+    ef2_size_t size)
+{
+    (void)context;
+
     /*
-     * The RAM sink succeeded even if the optional serial mirror failed.
+     * The RAM sink succeeds independently of the optional serial mirror.
      * Logging must never turn a missing serial interface into an app error.
      */
-    return (ef2_s32)size;
+    return ef2_debug_write_raw(data, size);
 }
 
 void ef2_debug_reset(void)

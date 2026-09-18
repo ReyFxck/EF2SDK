@@ -31,6 +31,10 @@ int ef2_debug_printf(
     const char *format,
     ...);
 
+ef2_s32 ef2_debug_write_raw(
+    const char *data,
+    ef2_size_t size);
+
 ef2_size_t ef2_debug_copy_recent(
     char *destination,
     ef2_size_t capacity);
