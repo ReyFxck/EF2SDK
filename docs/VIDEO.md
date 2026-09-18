@@ -185,3 +185,20 @@ PSMT4 textures use the same DECAL diagnostic path with their CLUT state.
 
 The region path also now targets the active draw framebuffer instead of
 hard-coding FRAME_1 base zero, fixing an independent double-buffering bug.
+
+
+## NetherSX2 validation: alpha.26-alpha.28
+
+The alpha.28 visual smoke test was validated in NetherSX2 on 2026-09-18.
+
+The captured frame simultaneously confirmed:
+
+- GIF DMA remained active with zero FIFO fallbacks;
+- the RGBA32 checkerboard still sampled correctly;
+- partial UV selection and source-over alpha blending produced the expected
+  composited region;
+- the generated PSMT8 texture sampled through its 256-entry RGBA32 CSM1 CLUT;
+- the generated PSMT4 texture sampled through its 16-entry RGBA32 CSM1 CLUT.
+
+This closes emulator validation for the first RGBA32, PSMT8 and PSMT4 texture
+paths. Real-hardware validation remains pending.
