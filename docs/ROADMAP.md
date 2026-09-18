@@ -73,7 +73,7 @@
 - [x] initial direct-SIO2 Multitap topology and per-slot API
 - [ ] validate Multitap slot switching on real hardware
 - [x] initial memory card RPC access (ROM MCMAN/MCSERV get-info path)
-- [ ] validate memory card get-info/free-space path in NetherSX2
+- [ ] validate memory card get-info/free-space path in NetherSX2 (alpha.45 reached MC init but MCSERV bind failed; alpha.46 adds module/bind diagnostics and classic-first fallback)
 - [ ] memory card file/directory read-write API
 - [ ] USB mass storage path
 

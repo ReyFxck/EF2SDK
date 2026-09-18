@@ -33,6 +33,7 @@ static ef2_mc_desc_param g_mc_desc;
 static ef2_mc_end_param g_mc_end;
 static ef2_s32 g_mc_reply[4] EF2_ALIGN(64);
 static ef2_s32 g_mc_initialized;
+static ef2_mc_diag g_mc_diag;
 
 static void ef2_mc_zero(void *ptr, ef2_u32 size)
 {
@@ -51,27 +52,47 @@ static const ef2_mc_end_param *ef2_mc_end_uncached(void)
 
 static int ef2_mc_bind(void)
 {
+    int result;
+
     ef2_mc_zero(&g_mc_client, sizeof(g_mc_client));
 
-    if (ef2_sif_bind(
-            &g_mc_client,
-            EF2_MCSERV_RPC_SID) < 0)
-        return -1;
+    result = ef2_sif_bind(
+        &g_mc_client,
+        EF2_MCSERV_RPC_SID);
+    if (result < 0)
+        return result;
 
     if (g_mc_client.server == (void *)0)
-        return -2;
+        return -6;
 
     return 0;
 }
 
-static void ef2_mc_try_load_rom_modules(
+static void ef2_mc_load_rom_modules(
+    ef2_mc_module_set module_set,
     const char *sio2,
     const char *mcman,
     const char *mcserv)
 {
-    (void)ef2_iop_load_module(sio2);
-    (void)ef2_iop_load_module(mcman);
-    (void)ef2_iop_load_module(mcserv);
+    g_mc_diag.module_set = module_set;
+
+    g_mc_diag.sio2_start = -1;
+    g_mc_diag.sio2_load =
+        ef2_iop_load_module_ex(
+            sio2,
+            &g_mc_diag.sio2_start);
+
+    g_mc_diag.mcman_start = -1;
+    g_mc_diag.mcman_load =
+        ef2_iop_load_module_ex(
+            mcman,
+            &g_mc_diag.mcman_start);
+
+    g_mc_diag.mcserv_start = -1;
+    g_mc_diag.mcserv_load =
+        ef2_iop_load_module_ex(
+            mcserv,
+            &g_mc_diag.mcserv_start);
 }
 
 int ef2_mc_init(void)
@@ -81,28 +102,45 @@ int ef2_mc_init(void)
     if (g_mc_initialized)
         return 0;
 
+    ef2_mc_zero(&g_mc_diag, sizeof(g_mc_diag));
+    g_mc_diag.sio2_load = -1;
+    g_mc_diag.sio2_start = -1;
+    g_mc_diag.mcman_load = -1;
+    g_mc_diag.mcman_start = -1;
+    g_mc_diag.mcserv_load = -1;
+    g_mc_diag.mcserv_start = -1;
+    g_mc_diag.bind_result = -1;
+
     result = ef2_sif_init();
     if (result < 0)
         return -100 + result;
 
     /*
-     * Prefer the newer ROM X modules. Their MCSERV remains compatible with
-     * the classic 0x70/0x78 commands used below. If the BIOS does not carry
-     * them, fall back to the classic ROM modules.
+     * Alpha.45 tried the X module family first. The first NetherSX2 test
+     * showed that this could leave no MCSERV endpoint to bind on the tested
+     * BIOS. Start with the classic ROM family because the public command
+     * surface below is intentionally classic MCSERV-compatible, then fall
+     * back to the X family when classic binding is unavailable.
      */
-    ef2_mc_try_load_rom_modules(
-        "rom0:XSIO2MAN",
-        "rom0:XMCMAN",
-        "rom0:XMCSERV");
+    ef2_mc_load_rom_modules(
+        EF2_MC_MODULE_SET_CLASSIC,
+        "rom0:SIO2MAN",
+        "rom0:MCMAN",
+        "rom0:MCSERV");
 
     result = ef2_mc_bind();
+    g_mc_diag.bind_result = result;
+
     if (result < 0) {
-        ef2_mc_try_load_rom_modules(
-            "rom0:SIO2MAN",
-            "rom0:MCMAN",
-            "rom0:MCSERV");
+        ef2_mc_load_rom_modules(
+            EF2_MC_MODULE_SET_X,
+            "rom0:XSIO2MAN",
+            "rom0:XMCMAN",
+            "rom0:XMCSERV");
 
         result = ef2_mc_bind();
+        g_mc_diag.bind_result = result;
+
         if (result < 0)
             return -200 + result;
     }
@@ -199,4 +237,14 @@ int ef2_mc_get_info(
             : 1;
 
     return info->result;
+}
+
+
+int ef2_mc_get_diag(ef2_mc_diag *diag)
+{
+    if (diag == (ef2_mc_diag *)0)
+        return -1;
+
+    *diag = g_mc_diag;
+    return 0;
 }

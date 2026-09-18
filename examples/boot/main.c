@@ -363,7 +363,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.45 start argc=%d\n",
+        "alpha.46 start argc=%d\n",
         argc);
 
     {
@@ -795,10 +795,25 @@ int main(int argc, char **argv)
     {
         ef2_mc_info mc0 = {0};
         ef2_mc_info mc1 = {0};
+        ef2_mc_diag mc_diag = {0};
         int mc_init_result =
             ef2_mc_init();
         int mc0_result = mc_init_result;
         int mc1_result = mc_init_result;
+
+        (void)ef2_mc_get_diag(&mc_diag);
+
+        (void)ef2_debug_printf(
+            "MC",
+            "modules=%u sio2=%d/%d mcman=%d/%d mcserv=%d/%d bind=%d\n",
+            (ef2_u32)mc_diag.module_set,
+            mc_diag.sio2_load,
+            mc_diag.sio2_start,
+            mc_diag.mcman_load,
+            mc_diag.mcman_start,
+            mc_diag.mcserv_load,
+            mc_diag.mcserv_start,
+            mc_diag.bind_result);
 
         if (mc_init_result == 0) {
             mc0_result =

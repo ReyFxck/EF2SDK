@@ -21,6 +21,23 @@ typedef struct {
     ef2_s32 formatted;
 } ef2_mc_info;
 
+typedef enum {
+    EF2_MC_MODULE_SET_NONE = 0,
+    EF2_MC_MODULE_SET_CLASSIC = 1,
+    EF2_MC_MODULE_SET_X = 2
+} ef2_mc_module_set;
+
+typedef struct {
+    ef2_mc_module_set module_set;
+    ef2_s32 sio2_load;
+    ef2_s32 sio2_start;
+    ef2_s32 mcman_load;
+    ef2_s32 mcman_start;
+    ef2_s32 mcserv_load;
+    ef2_s32 mcserv_start;
+    ef2_s32 bind_result;
+} ef2_mc_diag;
+
 /*
  * Initializes the ROM MCMAN/MCSERV-compatible path and binds the memory-card
  * RPC server. Returns 0 on success or a negative EF2 stage code.
@@ -37,6 +54,8 @@ int ef2_mc_get_info(
     ef2_s32 port,
     ef2_s32 slot,
     ef2_mc_info *info);
+
+int ef2_mc_get_diag(ef2_mc_diag *diag);
 
 #ifdef __cplusplus
 }
