@@ -194,11 +194,12 @@ $(HOST_FORMAT_TEST): tests/format_test.c src/ee/runtime/libc_format.c include/ef
 		-Iinclude/ef2/compat -Iinclude \
 		tests/format_test.c src/ee/runtime/libc_format.c -o $@
 
-$(HOST_STDIO_TEST): tests/stdio_test.c src/ee/runtime/libc_stdio.c src/ee/runtime/libc_format.c src/ee/runtime/heap.c include/ef2/heap.h include/ef2/libc.h include/ef2/stdio.h | $(BUILD)
+$(HOST_STDIO_TEST): tests/stdio_test.c src/ee/runtime/libc_stdio.c src/ee/runtime/libc_format.c src/ee/runtime/libc_memory.c src/ee/runtime/heap.c include/ef2/heap.h include/ef2/libc.h include/ef2/stdio.h | $(BUILD)
 	$(HOSTCC) -std=c11 -O2 -Wall -Wextra -Werror -fno-builtin \
 		-DEF2_LIBC_NO_STANDARD_ALIASES -Iinclude \
 		tests/stdio_test.c src/ee/runtime/libc_stdio.c \
-		src/ee/runtime/libc_format.c src/ee/runtime/heap.c -o $@
+		src/ee/runtime/libc_format.c src/ee/runtime/libc_memory.c \
+		src/ee/runtime/heap.c -o $@
 
 $(HOST_ZLIB_TEST): tests/zlib_test.c $(ZLIB_HOST_LIB) | $(BUILD)
 	$(HOSTCC) -std=c11 -O2 -Wall -Wextra -Werror \
