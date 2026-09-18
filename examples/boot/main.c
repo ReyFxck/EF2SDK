@@ -2,7 +2,9 @@
 #include <ef2/base.h>
 #include <ef2/crash.h>
 #include <ef2/debug.h>
+#include <ef2/interrupt.h>
 #include <ef2/pad.h>
+#include <ef2/timer.h>
 #include <ef2/video.h>
 
 #define EF2_MELODY_RATE 32000u
@@ -15,6 +17,25 @@
 volatile ef2_u32 ef2_boot_counter;
 volatile ef2_s32 ef2_video_status;
 volatile ef2_s32 ef2_audio_status;
+static volatile ef2_u32 g_timer_irq_hits;
+
+static ef2_s32 timer0_smoke_handler(
+    ef2_s32 source,
+    void *arg,
+    void *address)
+{
+    (void)source;
+    (void)arg;
+    (void)address;
+
+    ++g_timer_irq_hits;
+    (void)ef2_timer_ack(
+        EF2_TIMER_0,
+        EF2_TIMER_EVENT_COMPARE);
+
+    return 0;
+}
+
 
 static ef2_s16 g_melody_input[EF2_MELODY_INPUT_FRAMES * 2u];
 static ef2_s16 g_melody_output[EF2_MELODY_OUTPUT_FRAMES * 2u];
@@ -335,7 +356,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.38 start argc=%d\n",
+        "alpha.39 start argc=%d\n",
         argc);
 
     {
@@ -349,6 +370,72 @@ int main(int argc, char **argv)
             ef2_crash_is_installed());
 
         if (crash_result != 0) {
+            for (;;)
+                ++ef2_boot_counter;
+        }
+    }
+
+    {
+        const ef2_timer_config timer_config = {
+            .clock = EF2_TIMER_CLOCK_BUS_DIV256,
+            .compare = 4096u,
+            .flags =
+                EF2_TIMER_FLAG_ZERO_ON_COMPARE |
+                EF2_TIMER_FLAG_IRQ_COMPARE,
+        };
+        ef2_s32 handler_id;
+        ef2_u32 spin = 0x01000000u;
+        ef2_u16 count_after;
+
+        g_timer_irq_hits = 0;
+
+        handler_id = ef2_interrupt_add_intc(
+            EF2_INTC_TIMER0,
+            timer0_smoke_handler,
+            0,
+            -1);
+
+        if (handler_id < 0 ||
+            ef2_timer_configure(
+                EF2_TIMER_0,
+                &timer_config) != 0 ||
+            ef2_interrupt_enable_intc(
+                EF2_INTC_TIMER0) < 0 ||
+            ef2_timer_start(EF2_TIMER_0) != 0) {
+            (void)ef2_debug_printf(
+                "TIMER",
+                "setup failed handler=%d\n",
+                handler_id);
+
+            for (;;)
+                ++ef2_boot_counter;
+        }
+
+        while (g_timer_irq_hits == 0u &&
+               spin != 0u) {
+            --spin;
+            __asm__ volatile("nop");
+        }
+
+        count_after =
+            ef2_timer_get_count(
+                EF2_TIMER_0);
+
+        (void)ef2_timer_stop(EF2_TIMER_0);
+        (void)ef2_interrupt_disable_intc(
+            EF2_INTC_TIMER0);
+        (void)ef2_interrupt_remove_intc(
+            EF2_INTC_TIMER0,
+            handler_id);
+
+        (void)ef2_debug_printf(
+            "TIMER",
+            "irq_hits=%u count=%u cpu_count=%u\n",
+            g_timer_irq_hits,
+            (ef2_u32)count_after,
+            ef2_cpu_count());
+
+        if (g_timer_irq_hits == 0u) {
             for (;;)
                 ++ef2_boot_counter;
         }

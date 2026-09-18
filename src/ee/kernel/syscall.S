@@ -21,8 +21,15 @@
     EF2_SYSCALL ef2_kernel_set_v_common_handler, 0x0e
     EF2_SYSCALL ef2_kernel_setup_heap, 0x3d
     EF2_SYSCALL ef2_kernel_end_of_heap, 0x3e
+    EF2_SYSCALL ef2_kernel_add_intc_handler2, 0x10
+    EF2_SYSCALL ef2_kernel_remove_intc_handler, 0x11
     EF2_SYSCALL ef2_kernel_add_dmac_handler, 0x12
+    EF2_SYSCALL ef2_kernel_add_dmac_handler2, 0x12
+    EF2_SYSCALL ef2_kernel_remove_dmac_handler, 0x13
+    EF2_SYSCALL ef2_kernel_enable_intc, 0x14
+    EF2_SYSCALL ef2_kernel_disable_intc, 0x15
     EF2_SYSCALL ef2_kernel_enable_dmac, 0x16
+    EF2_SYSCALL ef2_kernel_disable_dmac, 0x17
     EF2_SYSCALL ef2_kernel_flush_cache, 0x64
     EF2_SYSCALL ef2_kernel_sif_dma_stat, 0x76
     EF2_SYSCALL ef2_kernel_sif_set_dma, 0x77

@@ -20,8 +20,8 @@
 - [x] initial range-based EE D-cache writeback/invalidate helper
 - [x] first raw kernel syscall wrapper (`SetGsCrt`, syscall 0x02)
 - [ ] general kernel syscall wrappers
-- [ ] interrupt primitives
-- [ ] timers
+- [x] initial INTC/DMAC interrupt primitives
+- [x] initial EE hardware timer API and COP0 Count helper
 
 ## P2 - Video
 
@@ -105,7 +105,7 @@
 - [ ] C++ runtime strategy
 - [x] initial upstream zlib 1.3.2 in-memory core port
 - [x] host compress/uncompress regression test + target freestanding link test
-- [ ] zlib gz*/stdio layer
+- [x] pinned upstream zlib 1.3.2 port gz*/stdio layer
 - [ ] libpng
 - [ ] FreeType
 - [ ] SDL3 feasibility

@@ -21,11 +21,37 @@ void ef2_kernel_set_v_common_handler(
 void ef2_kernel_setup_heap(void *start, ef2_s32 size);
 void *ef2_kernel_end_of_heap(void);
 
+ef2_s32 ef2_kernel_add_intc_handler2(
+    ef2_s32 cause,
+    ef2_s32 (*handler)(
+        ef2_s32 cause,
+        void *arg,
+        void *address),
+    ef2_s32 next,
+    void *arg);
+ef2_s32 ef2_kernel_remove_intc_handler(
+    ef2_s32 cause,
+    ef2_s32 handler_id);
+ef2_s32 ef2_kernel_enable_intc(ef2_s32 cause);
+ef2_s32 ef2_kernel_disable_intc(ef2_s32 cause);
+
 ef2_s32 ef2_kernel_add_dmac_handler(
     ef2_s32 channel,
     ef2_s32 (*handler)(ef2_s32 channel),
     ef2_s32 next);
+ef2_s32 ef2_kernel_add_dmac_handler2(
+    ef2_s32 channel,
+    ef2_s32 (*handler)(
+        ef2_s32 channel,
+        void *arg,
+        void *address),
+    ef2_s32 next,
+    void *arg);
+ef2_s32 ef2_kernel_remove_dmac_handler(
+    ef2_s32 channel,
+    ef2_s32 handler_id);
 ef2_s32 ef2_kernel_enable_dmac(ef2_s32 channel);
+ef2_s32 ef2_kernel_disable_dmac(ef2_s32 channel);
 void ef2_kernel_flush_cache(ef2_s32 operation);
 
 ef2_s32 ef2_kernel_sif_dma_stat(ef2_s32 id);
