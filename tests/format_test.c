@@ -57,7 +57,7 @@ static int test_namespaced(void)
         "abc",
         (ef2_size_t)99u);
 
-    if (result != 16 ||
+    if (result != 15 ||
         !same_text(
             buffer,
             "  x      abc 99"))
