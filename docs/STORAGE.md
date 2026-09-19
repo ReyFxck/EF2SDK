@@ -104,3 +104,30 @@ devices. The initial implementation is deliberately read-only:
 
 The boot smoke reads only page zero and checks the 28-byte PS2 memory-card
 superblock signature. No erase or write command is issued.
+
+
+## Alpha.49 black-screen regression and Alpha.50 fix
+
+The Alpha.49 NetherSX2 run black-screened as soon as the smoke attempted the
+new page-zero read. The geometry-only Alpha.48 path remained known-good.
+
+The failing implementation copied MCMAN's 128-byte data command shape
+(`0x86` / 134-byte SIO2 packet) onto EF2's simple PIO FIFO path. MCMAN uses
+DMA buffers for those long packets. Alpha.50 keeps the same native protocol
+semantics but limits each PIO transaction to 32 data bytes: a page read is
+sixteen `0x43` packets of 38 bytes, each independently EDC checked. This
+avoids pushing the DMA-sized packet through the small synchronous PIO path.
+
+### Format state
+
+Native-card discovery now sets `ef2_storage_device_info.formatted`:
+
+- `EF2_STORAGE_FORMAT_UNKNOWN (-1)`: page zero could not be read safely;
+- `EF2_STORAGE_FORMAT_UNFORMATTED (0)`: page zero was readable but did not
+  contain the PS2 filesystem superblock magic;
+- `EF2_STORAGE_FORMAT_FORMATTED (1)`: page zero begins with
+  `Sony PS2 Memory Card Format `.
+
+The scan diagnostic also exposes the page-zero format probe result for both
+ports. No media write is required to distinguish formatted from unformatted
+cards.

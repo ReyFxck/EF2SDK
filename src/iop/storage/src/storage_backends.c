@@ -39,6 +39,9 @@ static ef2_u32 g_mx_card_type;
 static ef2_u32 g_mx_sector_count;
 static ef2_s32 g_mx_initialized;
 
+#define MC_PIO_READ_CHUNK 32u
+static ef2_u8 g_mc_format_page[EF2_STORAGE_IO_CHUNK];
+
 static void clear_bytes(void *ptr, ef2_u32 size)
 {
     ef2_u8 *bytes = (ef2_u8 *)ptr;
@@ -63,6 +66,7 @@ static void copy_device_info(
     dest->product_id = source->product_id;
     dest->product_revision = source->product_revision;
     dest->card_flags = source->card_flags;
+    dest->formatted = source->formatted;
     dest->current_card = source->current_card;
     dest->current_channel = source->current_channel;
     dest->status = source->status;
@@ -679,21 +683,29 @@ static int mc_select_read_page(
     return 0;
 }
 
-static int mc_read_data_128(
+static int mc_read_data_chunk(
     const ef2_storage_device_info *device,
-    ef2_u8 *dest)
+    ef2_u8 *dest,
+    ef2_u32 size)
 {
-    ef2_u8 tx[134];
-    ef2_u8 rx[134];
+    ef2_u8 tx[MC_PIO_READ_CHUNK + 6u];
+    ef2_u8 rx[MC_PIO_READ_CHUNK + 6u];
+    ef2_u32 packet_size;
     ef2_u32 i;
     int result;
+
+    if (size == 0u ||
+        size > MC_PIO_READ_CHUNK)
+        return -20;
+
+    packet_size = size + 6u;
 
     clear_bytes(tx, sizeof(tx));
     clear_bytes(rx, sizeof(rx));
 
     tx[0] = 0x81u;
     tx[1] = 0x43u;
-    tx[2] = 128u;
+    tx[2] = (ef2_u8)size;
 
     result = ef2_storage_sio2_exchange(
         device->physical_port,
@@ -701,24 +713,26 @@ static int mc_read_data_128(
         MC_CTRL2,
         0u,
         tx,
-        sizeof(tx),
+        packet_size,
         rx,
-        sizeof(rx),
+        packet_size,
         40000u);
 
     if (result < 0)
-        return -20;
-
-    if (rx[3] != 0x2Bu)
         return -21;
 
-    if (xor_edc(&rx[4], 128u) != rx[132])
+    if (rx[3] != 0x2Bu)
         return -22;
 
-    if (!mc_valid_terminator(rx[133]))
+    if (xor_edc(&rx[4], size) !=
+        rx[4u + size])
         return -23;
 
-    for (i = 0; i < 128u; ++i)
+    if (!mc_valid_terminator(
+            rx[5u + size]))
+        return -24;
+
+    for (i = 0; i < size; ++i)
         dest[i] = rx[4u + i];
 
     return 0;
@@ -786,11 +800,14 @@ static int mc_read_page(
     if (result < 0)
         return result;
 
-    for (chunk = 0u; chunk < 4u; ++chunk) {
+    for (chunk = 0u;
+         chunk < EF2_STORAGE_IO_CHUNK;
+         chunk += MC_PIO_READ_CHUNK) {
         result =
-            mc_read_data_128(
+            mc_read_data_chunk(
                 device,
-                &data[chunk * 128u]);
+                &data[chunk],
+                MC_PIO_READ_CHUNK);
 
         if (result < 0)
             return result;
@@ -798,6 +815,46 @@ static int mc_read_page(
 
     return
         mc_finish_read(device);
+}
+
+static int mc_check_format(
+    const ef2_storage_device_info *device,
+    ef2_s32 *formatted)
+{
+    static const char magic[] =
+        "Sony PS2 Memory Card Format ";
+    ef2_u32 i;
+    int result;
+
+    if (formatted == (ef2_s32 *)0)
+        return -1;
+
+    *formatted =
+        EF2_STORAGE_FORMAT_UNKNOWN;
+
+    result =
+        mc_read_page(
+            device,
+            0u,
+            g_mc_format_page);
+
+    if (result < 0)
+        return result;
+
+    for (i = 0u;
+         i < sizeof(magic) - 1u;
+         ++i) {
+        if (g_mc_format_page[i] !=
+            (ef2_u8)magic[i]) {
+            *formatted =
+                EF2_STORAGE_FORMAT_UNFORMATTED;
+            return 0;
+        }
+    }
+
+    *formatted =
+        EF2_STORAGE_FORMAT_FORMATTED;
+    return 0;
 }
 
 int ef2_storage_backend_scan(
@@ -821,6 +878,8 @@ int ef2_storage_backend_scan(
     diag->mc_terminator_result[1] = -127;
     diag->mc_geometry_result[0] = -127;
     diag->mc_geometry_result[1] = -127;
+    diag->mc_format_result[0] = -127;
+    diag->mc_format_result[1] = -127;
     diag->mx4sio_result = -127;
 
     for (port = 2u;
@@ -834,6 +893,8 @@ int ef2_storage_backend_scan(
 
         clear_bytes(&info, sizeof(info));
         info.physical_port = port;
+        info.formatted =
+            EF2_STORAGE_FORMAT_UNKNOWN;
 
         mmce_result =
             mmce_ping(port, &info);
@@ -859,10 +920,21 @@ int ef2_storage_backend_scan(
             diag->mc_geometry_result[logical_port] =
                 mc_result;
 
-            if (mc_result == 0)
+            if (mc_result == 0) {
+                int format_result;
+
                 info.capabilities |=
                     EF2_STORAGE_CAP_GEOMETRY |
                     EF2_STORAGE_CAP_PAGE_READ;
+
+                format_result =
+                    mc_check_format(
+                        &info,
+                        &info.formatted);
+
+                diag->mc_format_result[logical_port] =
+                    format_result;
+            }
 
             {
                 int value =
@@ -902,12 +974,22 @@ int ef2_storage_backend_scan(
             mc_result;
 
         if (mc_result == 0) {
+            int format_result;
+
             info.kind =
                 EF2_STORAGE_KIND_PS2_MEMORY_CARD;
             info.capabilities =
                 EF2_STORAGE_CAP_MEMORY_CARD |
                 EF2_STORAGE_CAP_GEOMETRY |
                 EF2_STORAGE_CAP_PAGE_READ;
+
+            format_result =
+                mc_check_format(
+                    &info,
+                    &info.formatted);
+
+            diag->mc_format_result[logical_port] =
+                format_result;
 
             copy_device_info(
                 &devices[found],
@@ -925,6 +1007,8 @@ int ef2_storage_backend_scan(
 
             if (mx_result == 0) {
                 clear_bytes(&info, sizeof(info));
+                info.formatted =
+                    EF2_STORAGE_FORMAT_UNKNOWN;
                 info.kind =
                     EF2_STORAGE_KIND_MX4SIO;
                 info.capabilities =

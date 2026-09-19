@@ -50,7 +50,6 @@ static ef2_u32 g_indexed_palette[256] EF2_ALIGN(16);
 static ef2_u8 g_indexed4_linear[32u * 32u] EF2_ALIGN(16);
 static ef2_u8 g_indexed4_packed[(32u * 32u) / 2u] EF2_ALIGN(16);
 static ef2_u32 g_indexed4_palette[16] EF2_ALIGN(16);
-static ef2_u8 g_storage_probe_page[EF2_STORAGE_IO_CHUNK] EF2_ALIGN(64);
 
 static const ef2_u16 g_melody_notes[] = {
     262, 330, 392, 523,
@@ -177,26 +176,6 @@ static void generate_indexed4_texture(void)
         sizeof(g_indexed4_packed),
         g_indexed4_linear,
         32u * 32u);
-}
-
-static int storage_superblock_magic_matches(
-    const ef2_u8 *page,
-    ef2_u32 size)
-{
-    static const char magic[] =
-        "Sony PS2 Memory Card Format ";
-    ef2_u32 i;
-
-    if (page == (const ef2_u8 *)0 ||
-        size < sizeof(magic) - 1u)
-        return 0;
-
-    for (i = 0u; i < sizeof(magic) - 1u; ++i) {
-        if (page[i] != (ef2_u8)magic[i])
-            return 0;
-    }
-
-    return 1;
 }
 
 static void show_gif_transport_indicator(void)
@@ -385,7 +364,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.49 start argc=%d\n",
+        "alpha.50 start argc=%d\n",
         argc);
 
     {
@@ -840,13 +819,15 @@ int main(int argc, char **argv)
 
             (void)ef2_debug_printf(
                 "STORAGE",
-                "probe p0:mmce=%d term=%d mc=%d p1:mmce=%d term=%d mc=%d mx=%d\n",
+                "probe p0:mmce=%d term=%d mc=%d fmt=%d p1:mmce=%d term=%d mc=%d fmt=%d mx=%d\n",
                 diag.mmce_result[0],
                 diag.mc_terminator_result[0],
                 diag.mc_geometry_result[0],
+                diag.mc_format_result[0],
                 diag.mmce_result[1],
                 diag.mc_terminator_result[1],
                 diag.mc_geometry_result[1],
+                diag.mc_format_result[1],
                 diag.mx4sio_result);
         }
 
@@ -861,7 +842,7 @@ int main(int argc, char **argv)
 
             (void)ef2_debug_printf(
                 "STORAGE",
-                "dev=%u info=%d kind=%u port=%u caps=%x page=%u block=%u pages=%u flags=%x sector=%u sectors=%u proto=%u product=%u rev=%u card=%u chan=%u\n",
+                "dev=%u info=%d kind=%u port=%u caps=%x page=%u block=%u pages=%u flags=%x formatted=%d sector=%u sectors=%u proto=%u product=%u rev=%u card=%u chan=%u\n",
                 storage_index,
                 info_result,
                 (ef2_u32)device.kind,
@@ -871,6 +852,7 @@ int main(int argc, char **argv)
                 device.erase_block_pages,
                 device.page_count,
                 device.card_flags,
+                device.formatted,
                 device.sector_size,
                 device.sector_count,
                 device.protocol_version,
@@ -879,38 +861,6 @@ int main(int argc, char **argv)
                 device.current_card,
                 device.current_channel);
 
-            if (info_result == 0 &&
-                (device.capabilities &
-                 EF2_STORAGE_CAP_PAGE_READ) != 0u &&
-                device.page_size ==
-                    EF2_STORAGE_IO_CHUNK) {
-                int page_result =
-                    ef2_storage_read_page(
-                        storage_index,
-                        0u,
-                        g_storage_probe_page,
-                        device.page_size);
-
-                (void)ef2_debug_printf(
-                    "STORAGE",
-                    "dev=%u page0=%d magic=%u head=%02x%02x%02x%02x\n",
-                    storage_index,
-                    page_result,
-                    page_result == 0
-                        ? (ef2_u32)
-                          storage_superblock_magic_matches(
-                              g_storage_probe_page,
-                              device.page_size)
-                        : 0u,
-                    page_result == 0
-                        ? g_storage_probe_page[0] : 0u,
-                    page_result == 0
-                        ? g_storage_probe_page[1] : 0u,
-                    page_result == 0
-                        ? g_storage_probe_page[2] : 0u,
-                    page_result == 0
-                        ? g_storage_probe_page[3] : 0u);
-            }
         }
     }
 

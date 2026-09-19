@@ -19,6 +19,12 @@ typedef enum {
     EF2_STORAGE_KIND_MX4SIO = 3
 } ef2_storage_kind;
 
+typedef enum {
+    EF2_STORAGE_FORMAT_UNKNOWN = -1,
+    EF2_STORAGE_FORMAT_UNFORMATTED = 0,
+    EF2_STORAGE_FORMAT_FORMATTED = 1
+} ef2_storage_format_state;
+
 enum {
     EF2_STORAGE_CAP_MEMORY_CARD = 1u << 0,
     EF2_STORAGE_CAP_GEOMETRY = 1u << 1,
@@ -53,6 +59,7 @@ typedef struct {
     ef2_u32 product_id;
     ef2_u32 product_revision;
     ef2_u32 card_flags;
+    ef2_s32 formatted;
     ef2_u32 current_card;
     ef2_u32 current_channel;
     ef2_u32 status;
@@ -62,6 +69,7 @@ typedef struct {
     ef2_s32 mmce_result[2];
     ef2_s32 mc_terminator_result[2];
     ef2_s32 mc_geometry_result[2];
+    ef2_s32 mc_format_result[2];
     ef2_s32 mx4sio_result;
 } ef2_storage_scan_diag;
 

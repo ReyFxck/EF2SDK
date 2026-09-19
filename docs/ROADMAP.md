@@ -78,7 +78,7 @@
 - [ ] native PS2 memory-card authentication + raw page/ECC/bad-block implementation
   - [x] direct geometry discovery validated in NetherSX2 (alpha.48, 2026-09-19; both 8 MiB virtual cards detected)
   - [x] initial read-only raw 512-byte page path with per-128-byte EDC validation
-  - [ ] validate raw page read + superblock signature in NetherSX2
+  - [ ] validate chunked raw page read + formatted/unformatted superblock detection in NetherSX2 (alpha.49 black-screened with 134-byte PIO packets; alpha.50 uses 38-byte bounded PIO packets)
   - [ ] authentication, spare/ECC correction, erase/write and bad-block handling
 - [ ] native PS2 memory-card filesystem read/write implementation
 - [x] MMCE v1 ping/status/card/channel/GameID control

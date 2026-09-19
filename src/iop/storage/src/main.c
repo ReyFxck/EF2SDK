@@ -33,6 +33,7 @@ static void copy_device_info(
     dest->product_id = source->product_id;
     dest->product_revision = source->product_revision;
     dest->card_flags = source->card_flags;
+    dest->formatted = source->formatted;
     dest->current_card = source->current_card;
     dest->current_channel = source->current_channel;
     dest->status = source->status;
@@ -52,6 +53,10 @@ static void copy_scan_diag(
         source->mc_geometry_result[0];
     dest->mc_geometry_result[1] =
         source->mc_geometry_result[1];
+    dest->mc_format_result[0] =
+        source->mc_format_result[0];
+    dest->mc_format_result[1] =
+        source->mc_format_result[1];
     dest->mx4sio_result = source->mx4sio_result;
 }
 
