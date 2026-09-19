@@ -630,6 +630,176 @@ static int mx_write_sector(ef2_u32 sector,const ef2_u8 data[512])
     return 0;
 }
 
+static int mc_valid_terminator(ef2_u8 value)
+{
+    return
+        value == 0x55u ||
+        value == 0x5Au;
+}
+
+static int mc_select_read_page(
+    const ef2_storage_device_info *device,
+    ef2_u32 page)
+{
+    ef2_u8 tx[9];
+    ef2_u8 rx[9];
+    int result;
+
+    clear_bytes(tx, sizeof(tx));
+    clear_bytes(rx, sizeof(rx));
+
+    tx[0] = 0x81u;
+    tx[1] = 0x23u;
+    tx[2] = (ef2_u8)page;
+    tx[3] = (ef2_u8)(page >> 8);
+    tx[4] = (ef2_u8)(page >> 16);
+    tx[5] = (ef2_u8)(page >> 24);
+    tx[6] = xor_edc(&tx[2], 4u);
+
+    result = ef2_storage_sio2_exchange(
+        device->physical_port,
+        MC_CTRL1,
+        MC_CTRL2,
+        0u,
+        tx,
+        sizeof(tx),
+        rx,
+        sizeof(rx),
+        20000u);
+
+    if (result < 0)
+        return -10;
+
+    if (rx[7] != 0x2Bu)
+        return -11;
+
+    if (!mc_valid_terminator(rx[8]))
+        return -12;
+
+    return 0;
+}
+
+static int mc_read_data_128(
+    const ef2_storage_device_info *device,
+    ef2_u8 *dest)
+{
+    ef2_u8 tx[134];
+    ef2_u8 rx[134];
+    ef2_u32 i;
+    int result;
+
+    clear_bytes(tx, sizeof(tx));
+    clear_bytes(rx, sizeof(rx));
+
+    tx[0] = 0x81u;
+    tx[1] = 0x43u;
+    tx[2] = 128u;
+
+    result = ef2_storage_sio2_exchange(
+        device->physical_port,
+        MC_CTRL1,
+        MC_CTRL2,
+        0u,
+        tx,
+        sizeof(tx),
+        rx,
+        sizeof(rx),
+        40000u);
+
+    if (result < 0)
+        return -20;
+
+    if (rx[3] != 0x2Bu)
+        return -21;
+
+    if (xor_edc(&rx[4], 128u) != rx[132])
+        return -22;
+
+    if (!mc_valid_terminator(rx[133]))
+        return -23;
+
+    for (i = 0; i < 128u; ++i)
+        dest[i] = rx[4u + i];
+
+    return 0;
+}
+
+static int mc_finish_read(
+    const ef2_storage_device_info *device)
+{
+    ef2_u8 tx[4];
+    ef2_u8 rx[4];
+    int result;
+
+    clear_bytes(tx, sizeof(tx));
+    clear_bytes(rx, sizeof(rx));
+
+    tx[0] = 0x81u;
+    tx[1] = 0x81u;
+
+    result = ef2_storage_sio2_exchange(
+        device->physical_port,
+        MC_CTRL1,
+        MC_CTRL2,
+        0u,
+        tx,
+        sizeof(tx),
+        rx,
+        sizeof(rx),
+        20000u);
+
+    if (result < 0)
+        return -30;
+
+    if (rx[2] != 0x2Bu)
+        return -31;
+
+    if (!mc_valid_terminator(rx[3]))
+        return -32;
+
+    return 0;
+}
+
+static int mc_read_page(
+    const ef2_storage_device_info *device,
+    ef2_u32 page,
+    ef2_u8 data[EF2_STORAGE_IO_CHUNK])
+{
+    ef2_u32 chunk;
+    int result;
+
+    if (device == (const ef2_storage_device_info *)0 ||
+        data == (ef2_u8 *)0)
+        return -1;
+
+    if ((device->capabilities &
+         EF2_STORAGE_CAP_GEOMETRY) == 0u ||
+        device->page_size != EF2_STORAGE_IO_CHUNK ||
+        page >= device->page_count)
+        return -2;
+
+    result =
+        mc_select_read_page(
+            device,
+            page);
+
+    if (result < 0)
+        return result;
+
+    for (chunk = 0u; chunk < 4u; ++chunk) {
+        result =
+            mc_read_data_128(
+                device,
+                &data[chunk * 128u]);
+
+        if (result < 0)
+            return result;
+    }
+
+    return
+        mc_finish_read(device);
+}
+
 int ef2_storage_backend_scan(
     ef2_storage_device_info *devices,
     ef2_u32 capacity,
@@ -691,7 +861,8 @@ int ef2_storage_backend_scan(
 
             if (mc_result == 0)
                 info.capabilities |=
-                    EF2_STORAGE_CAP_GEOMETRY;
+                    EF2_STORAGE_CAP_GEOMETRY |
+                    EF2_STORAGE_CAP_PAGE_READ;
 
             {
                 int value =
@@ -735,7 +906,8 @@ int ef2_storage_backend_scan(
                 EF2_STORAGE_KIND_PS2_MEMORY_CARD;
             info.capabilities =
                 EF2_STORAGE_CAP_MEMORY_CARD |
-                EF2_STORAGE_CAP_GEOMETRY;
+                EF2_STORAGE_CAP_GEOMETRY |
+                EF2_STORAGE_CAP_PAGE_READ;
 
             copy_device_info(
                 &devices[found],
@@ -775,6 +947,26 @@ int ef2_storage_backend_scan(
 
     *count = found;
     return 0;
+}
+
+int ef2_storage_backend_read_page(
+    const ef2_storage_device_info *device,
+    ef2_u32 page,
+    ef2_u8 data[EF2_STORAGE_IO_CHUNK])
+{
+    if (device == (const ef2_storage_device_info *)0 ||
+        data == (ef2_u8 *)0)
+        return -1;
+
+    if ((device->capabilities &
+         EF2_STORAGE_CAP_PAGE_READ) == 0u)
+        return -2;
+
+    return
+        mc_read_page(
+            device,
+            page,
+            data);
 }
 
 int ef2_storage_backend_read_sector(const ef2_storage_device_info *device,ef2_u32 sector,ef2_u8 data[EF2_STORAGE_IO_CHUNK])

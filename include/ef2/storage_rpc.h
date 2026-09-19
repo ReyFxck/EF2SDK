@@ -21,12 +21,14 @@ enum {
     EF2_STORAGE_RPC_MMCE_CLOSE = 12,
     EF2_STORAGE_RPC_MMCE_READ = 13,
     EF2_STORAGE_RPC_MMCE_WRITE = 14,
-    EF2_STORAGE_RPC_MMCE_LSEEK = 15
+    EF2_STORAGE_RPC_MMCE_LSEEK = 15,
+    EF2_STORAGE_RPC_READ_PAGE = 16
 };
 
 typedef struct {
     ef2_u32 index;
     ef2_u32 sector;
+    ef2_u32 page;
     ef2_u32 count;
     ef2_s32 fd;
     ef2_s32 offset;

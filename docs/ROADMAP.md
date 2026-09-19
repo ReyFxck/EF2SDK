@@ -76,12 +76,16 @@
 - [x] EF2-owned embedded storage RPC service (`ef2storage.irx`)
 - [x] direct native PS2 memory-card geometry discovery over SIO2
 - [ ] native PS2 memory-card authentication + raw page/ECC/bad-block implementation
+  - [x] direct geometry discovery validated in NetherSX2 (alpha.48, 2026-09-19; both 8 MiB virtual cards detected)
+  - [x] initial read-only raw 512-byte page path with per-128-byte EDC validation
+  - [ ] validate raw page read + superblock signature in NetherSX2
+  - [ ] authentication, spare/ECC correction, erase/write and bad-block handling
 - [ ] native PS2 memory-card filesystem read/write implementation
 - [x] MMCE v1 ping/status/card/channel/GameID control
 - [x] MMCE open/close/read/write/lseek filesystem subset
 - [x] MX4SIO SD/MMC initialization + capacity discovery
 - [x] MX4SIO 512-byte sector read/write API (PIO-first)
-- [ ] validate native MC/MMCE/MX4SIO backends on their respective hardware/emulation (alpha.47 loaded/scanned in NetherSX2 but returned zero devices; alpha.48 fixes native-card terminator negotiation and adds per-backend probe diagnostics)
+- [ ] validate native MC/MMCE/MX4SIO backends on their respective hardware/emulation (alpha.47 loaded/scanned in NetherSX2 but returned zero devices; alpha.48 then detected both virtual native cards on ports 2/3 on 2026-09-19; MMCE/MX4SIO still require their respective devices)
 - [ ] shared SIO2 broker for concurrent pad/storage calls from multiple EE threads
 - [ ] unified VFS mount layer over MC/MMCE/MX4SIO
 - [ ] USB mass storage path

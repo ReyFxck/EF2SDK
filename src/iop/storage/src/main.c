@@ -85,6 +85,13 @@ static void *rpc_handler(int function,void *buffer,int length)
             if(length<(int)sizeof(*request)||device==0){result=-1;break;}
             copy_device_info(&g_reply.device, device);
             break;
+        case EF2_STORAGE_RPC_READ_PAGE:
+            if(length<(int)sizeof(*request)||device==0){result=-1;break;}
+            if(request->data_size==0u||request->data_size>EF2_STORAGE_IO_CHUNK){result=-2;break;}
+            result=ef2_storage_backend_read_page(device,request->page,g_reply.data);
+            if(result==0)
+                g_reply.data_size=request->data_size;
+            break;
         case EF2_STORAGE_RPC_READ_SECTOR:
             if(length<(int)sizeof(*request)||device==0){result=-1;break;}
             result=ef2_storage_backend_read_sector(device,request->sector,g_reply.data);

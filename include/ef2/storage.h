@@ -26,7 +26,8 @@ enum {
     EF2_STORAGE_CAP_BLOCK_WRITE = 1u << 3,
     EF2_STORAGE_CAP_FILESYSTEM = 1u << 4,
     EF2_STORAGE_CAP_VIRTUAL_CARDS = 1u << 5,
-    EF2_STORAGE_CAP_GAME_ID = 1u << 6
+    EF2_STORAGE_CAP_GAME_ID = 1u << 6,
+    EF2_STORAGE_CAP_PAGE_READ = 1u << 7
 };
 
 enum {
@@ -69,6 +70,12 @@ int ef2_storage_scan(void);
 ef2_u32 ef2_storage_get_device_count(void);
 int ef2_storage_get_device(ef2_u32 index, ef2_storage_device_info *info);
 int ef2_storage_get_scan_diag(ef2_storage_scan_diag *diag);
+
+int ef2_storage_read_page(
+    ef2_u32 index,
+    ef2_u32 page,
+    void *buffer,
+    ef2_u32 size);
 
 int ef2_storage_read_sectors(ef2_u32 index, ef2_u32 sector, void *buffer, ef2_u32 count);
 int ef2_storage_write_sectors(ef2_u32 index, ef2_u32 sector, const void *buffer, ef2_u32 count);

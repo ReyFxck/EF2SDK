@@ -1,6 +1,6 @@
 # EF2 Storage
 
-Alpha.48 hardens the direct-card handshake after Alpha.47 successfully loaded the storage service in NetherSX2 but reported zero devices. Alpha.47 was checking for a `0x5A` card terminator without first issuing the native `0x27` SET_TERMINATOR command. Alpha.48 negotiates `0x5A` first, accepts a standard `0x55` reset terminator as a fallback, exposes the card flags byte and publishes per-backend scan diagnostics. The storage architecture itself remains the EF2-owned embedded `ef2storage.irx` introduced in Alpha.47.
+Alpha.49 adds read-only native-card page access and a page-0 superblock smoke check. Alpha.48 hardens the direct-card handshake after Alpha.47 successfully loaded the storage service in NetherSX2 but reported zero devices. Alpha.47 was checking for a `0x5A` card terminator without first issuing the native `0x27` SET_TERMINATOR command. Alpha.48 negotiates `0x5A` first, accepts a standard `0x55` reset terminator as a fallback, exposes the card flags byte and publishes per-backend scan diagnostics. The storage architecture itself remains the EF2-owned embedded `ef2storage.irx` introduced in Alpha.47.
 
 The public EE API is `<ef2/storage.h>`. It exposes a device model instead of
 pretending that every accessory in a memory-card slot speaks the same
@@ -78,3 +78,29 @@ succeeded; `-127` means the stage was not attempted.
 The boot smoke logs these values even when the final device count is zero.
 This is intentionally read-only diagnostics: SET_TERMINATOR only changes the
 current protocol terminator byte and does not write card media.
+
+## Alpha.48 validation
+
+NetherSX2 validated the direct geometry path on 2026-09-19. Two virtual native
+cards were discovered, one on each memory-card SIO2 port. Both reported
+512-byte pages, 16 pages per erase block, 16384 pages (8 MiB) and card flags
+`0x2B`. MMCE correctly did not identify the ordinary virtual cards; the
+MX4SIO probe also remained absent, as expected without those accessories.
+
+The SET_TERMINATOR diagnostic still reports a mismatch on NetherSX2, but the
+geometry transaction succeeds with the reset terminator. The backend therefore
+continues to accept both standard ready terminators and treats the validated
+geometry packet/EDC as authoritative.
+
+## Native page reads
+
+Alpha.49 exposes `ef2_storage_read_page()` for geometry-capable native-card
+devices. The initial implementation is deliberately read-only:
+
+1. select a page with native command `0x23`;
+2. fetch four 128-byte chunks with `0x43`;
+3. validate each chunk EDC;
+4. finish the transfer with `0x81`.
+
+The boot smoke reads only page zero and checks the 28-byte PS2 memory-card
+superblock signature. No erase or write command is issued.

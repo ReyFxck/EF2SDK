@@ -134,6 +134,46 @@ int ef2_storage_get_device(ef2_u32 index, ef2_storage_device_info *info)
     return 0;
 }
 
+int ef2_storage_read_page(
+    ef2_u32 index,
+    ef2_u32 page,
+    void *buffer,
+    ef2_u32 size)
+{
+    ef2_u8 *dest = (ef2_u8 *)buffer;
+    ef2_u32 i;
+    int result;
+
+    if (!g_storage_bound ||
+        buffer == (void *)0 ||
+        size == 0u ||
+        size > EF2_STORAGE_IO_CHUNK)
+        return -1;
+
+    storage_zero(
+        &g_storage_request,
+        sizeof(g_storage_request));
+
+    g_storage_request.index = index;
+    g_storage_request.page = page;
+    g_storage_request.data_size = size;
+
+    result =
+        storage_rpc(
+            EF2_STORAGE_RPC_READ_PAGE);
+
+    if (result < 0)
+        return result;
+
+    if (g_storage_reply.data_size != size)
+        return -2;
+
+    for (i = 0; i < size; ++i)
+        dest[i] = g_storage_reply.data[i];
+
+    return 0;
+}
+
 int ef2_storage_read_sectors(ef2_u32 index, ef2_u32 sector, void *buffer, ef2_u32 count)
 {
     ef2_u8 *dest = (ef2_u8 *)buffer;
