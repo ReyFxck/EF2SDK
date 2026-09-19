@@ -1,6 +1,6 @@
 # EF2 Storage
 
-Alpha.47 pivots storage to an EF2-owned embedded service, `ef2storage.irx`.
+Alpha.48 hardens the direct-card handshake after Alpha.47 successfully loaded the storage service in NetherSX2 but reported zero devices. Alpha.47 was checking for a `0x5A` card terminator without first issuing the native `0x27` SET_TERMINATOR command. Alpha.48 negotiates `0x5A` first, accepts a standard `0x55` reset terminator as a fallback, exposes the card flags byte and publishes per-backend scan diagnostics. The storage architecture itself remains the EF2-owned embedded `ef2storage.irx` introduced in Alpha.47.
 
 The public EE API is `<ef2/storage.h>`. It exposes a device model instead of
 pretending that every accessory in a memory-card slot speaks the same
@@ -8,7 +8,7 @@ protocol.
 
 ## Direct backends
 
-- **Native PS2 memory card** — direct SIO2 `0x81/0x26` geometry query for
+- **Native PS2 memory card** — direct SIO2 `0x81/0x27` terminator negotiation followed by the `0x81/0x26` geometry query for
   page size, erase-block pages and total page count. This path does not use
   MCMAN/MCSERV.
 - **MMCE** — direct MMCE v1 ping/product detection, status, virtual-card and
@@ -67,3 +67,14 @@ persistent SIO2 interrupt handler. This allows the existing EF2Pad smoke to
 load afterwards when calls are serialized. A shared SIO2 broker remains a
 future requirement for applications issuing pad and storage RPCs concurrently
 from multiple EE threads.
+
+## Scan diagnostics
+
+`ef2_storage_get_scan_diag()` returns the last scan result for MMCE, native
+card terminator negotiation and native geometry on both memory-card SIO2
+ports, plus the MX4SIO probe result. A result of `0` means that stage
+succeeded; `-127` means the stage was not attempted.
+
+The boot smoke logs these values even when the final device count is zero.
+This is intentionally read-only diagnostics: SET_TERMINATOR only changes the
+current protocol terminator byte and does not write card media.

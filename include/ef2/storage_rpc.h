@@ -45,6 +45,7 @@ typedef struct {
     ef2_s32 value;
     ef2_u32 data_size;
     ef2_storage_device_info device;
+    ef2_storage_scan_diag scan_diag;
     ef2_u8 data[EF2_STORAGE_IO_CHUNK];
 } ef2_storage_rpc_reply;
 

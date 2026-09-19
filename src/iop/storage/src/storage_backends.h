@@ -1,7 +1,7 @@
 #ifndef EF2_STORAGE_BACKENDS_H
 #define EF2_STORAGE_BACKENDS_H
 #include <ef2/storage.h>
-int ef2_storage_backend_scan(ef2_storage_device_info *devices, ef2_u32 capacity, ef2_u32 *count);
+int ef2_storage_backend_scan(ef2_storage_device_info *devices, ef2_u32 capacity, ef2_u32 *count, ef2_storage_scan_diag *diag);
 int ef2_storage_backend_read_sector(const ef2_storage_device_info *device, ef2_u32 sector, ef2_u8 data[EF2_STORAGE_IO_CHUNK]);
 int ef2_storage_backend_write_sector(const ef2_storage_device_info *device, ef2_u32 sector, const ef2_u8 data[EF2_STORAGE_IO_CHUNK]);
 int ef2_storage_backend_mmce_status(const ef2_storage_device_info *device);

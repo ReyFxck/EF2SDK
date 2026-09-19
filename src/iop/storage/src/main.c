@@ -11,6 +11,7 @@ static SifRpcServerData_t g_rpc_server;
 static ef2_u8 g_rpc_input[EF2_STORAGE_RPC_INPUT_BYTES] __attribute__((aligned(64)));
 static ef2_storage_rpc_reply g_reply __attribute__((aligned(64)));
 static ef2_storage_device_info g_devices[EF2_STORAGE_MAX_DEVICES];
+static ef2_storage_scan_diag g_scan_diag;
 static ef2_u32 g_device_count;
 static int g_rpc_ready_sema = -1;
 
@@ -31,13 +32,43 @@ static void copy_device_info(
     dest->protocol_version = source->protocol_version;
     dest->product_id = source->product_id;
     dest->product_revision = source->product_revision;
+    dest->card_flags = source->card_flags;
     dest->current_card = source->current_card;
     dest->current_channel = source->current_channel;
     dest->status = source->status;
 }
 
+static void copy_scan_diag(
+    ef2_storage_scan_diag *dest,
+    const ef2_storage_scan_diag *source)
+{
+    dest->mmce_result[0] = source->mmce_result[0];
+    dest->mmce_result[1] = source->mmce_result[1];
+    dest->mc_terminator_result[0] =
+        source->mc_terminator_result[0];
+    dest->mc_terminator_result[1] =
+        source->mc_terminator_result[1];
+    dest->mc_geometry_result[0] =
+        source->mc_geometry_result[0];
+    dest->mc_geometry_result[1] =
+        source->mc_geometry_result[1];
+    dest->mx4sio_result = source->mx4sio_result;
+}
+
 static const ef2_storage_device_info *device_at(ef2_u32 index){return index<g_device_count?&g_devices[index]:(const ef2_storage_device_info *)0;}
-static int scan_devices(void){clear_bytes(g_devices,sizeof(g_devices));g_device_count=0u;return ef2_storage_backend_scan(g_devices,EF2_STORAGE_MAX_DEVICES,&g_device_count);}
+
+static int scan_devices(void)
+{
+    clear_bytes(g_devices, sizeof(g_devices));
+    clear_bytes(&g_scan_diag, sizeof(g_scan_diag));
+    g_device_count = 0u;
+
+    return ef2_storage_backend_scan(
+        g_devices,
+        EF2_STORAGE_MAX_DEVICES,
+        &g_device_count,
+        &g_scan_diag);
+}
 
 static void *rpc_handler(int function,void *buffer,int length)
 {
@@ -90,7 +121,10 @@ static void *rpc_handler(int function,void *buffer,int length)
             if(device==0){result=-1;break;}g_reply.value=ef2_storage_backend_mmce_lseek(device,request->fd,request->offset,request->whence);result=g_reply.value<0?g_reply.value:0;break;
         default: result=-100; break;
     }
-    g_reply.result=result;g_reply.device_count=g_device_count;return &g_reply;
+    g_reply.result=result;
+    g_reply.device_count=g_device_count;
+    copy_scan_diag(&g_reply.scan_diag, &g_scan_diag);
+    return &g_reply;
 }
 
 static void rpc_thread(void *arg)

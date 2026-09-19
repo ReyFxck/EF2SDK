@@ -364,7 +364,7 @@ int main(int argc, char **argv)
 
     (void)ef2_debug_printf(
         "BOOT",
-        "alpha.47 start argc=%d\n",
+        "alpha.48 start argc=%d\n",
         argc);
 
     {
@@ -812,6 +812,23 @@ int main(int argc, char **argv)
             storage_scan,
             storage_count);
 
+        {
+            ef2_storage_scan_diag diag = {0};
+
+            (void)ef2_storage_get_scan_diag(&diag);
+
+            (void)ef2_debug_printf(
+                "STORAGE",
+                "probe p0:mmce=%d term=%d mc=%d p1:mmce=%d term=%d mc=%d mx=%d\n",
+                diag.mmce_result[0],
+                diag.mc_terminator_result[0],
+                diag.mc_geometry_result[0],
+                diag.mmce_result[1],
+                diag.mc_terminator_result[1],
+                diag.mc_geometry_result[1],
+                diag.mx4sio_result);
+        }
+
         for (storage_index = 0u;
              storage_index < storage_count;
              ++storage_index) {
@@ -823,7 +840,7 @@ int main(int argc, char **argv)
 
             (void)ef2_debug_printf(
                 "STORAGE",
-                "dev=%u info=%d kind=%u port=%u caps=%x page=%u block=%u pages=%u sector=%u sectors=%u proto=%u product=%u rev=%u card=%u chan=%u\n",
+                "dev=%u info=%d kind=%u port=%u caps=%x page=%u block=%u pages=%u flags=%x sector=%u sectors=%u proto=%u product=%u rev=%u card=%u chan=%u\n",
                 storage_index,
                 info_result,
                 (ef2_u32)device.kind,
@@ -832,6 +849,7 @@ int main(int argc, char **argv)
                 device.page_size,
                 device.erase_block_pages,
                 device.page_count,
+                device.card_flags,
                 device.sector_size,
                 device.sector_count,
                 device.protocol_version,

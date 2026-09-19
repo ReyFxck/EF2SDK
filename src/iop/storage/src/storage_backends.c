@@ -62,6 +62,7 @@ static void copy_device_info(
     dest->protocol_version = source->protocol_version;
     dest->product_id = source->product_id;
     dest->product_revision = source->product_revision;
+    dest->card_flags = source->card_flags;
     dest->current_card = source->current_card;
     dest->current_channel = source->current_channel;
     dest->status = source->status;
@@ -84,34 +85,109 @@ static ef2_u8 xor_edc(const ef2_u8 *data, ef2_u32 size)
     return value;
 }
 
-static int mc_get_spec(ef2_u32 port, ef2_storage_device_info *info)
+static int mc_set_terminator(
+    ef2_u32 port,
+    ef2_u8 terminator)
 {
-    ef2_u8 tx[13];
-    ef2_u8 rx[13];
+    ef2_u8 tx[5];
+    ef2_u8 rx[5];
     int result;
 
     clear_bytes(tx, sizeof(tx));
     clear_bytes(rx, sizeof(rx));
+
+    tx[0] = 0x81u;
+    tx[1] = 0x27u;
+    tx[2] = terminator;
+
+    result = ef2_storage_sio2_exchange(
+        port,
+        MC_CTRL1,
+        MC_CTRL2,
+        0u,
+        tx,
+        sizeof(tx),
+        rx,
+        sizeof(rx),
+        20000u);
+
+    if (result < 0)
+        return result;
+
+    if (rx[3] != 0x2Bu)
+        return -20;
+
+    if (rx[4] != terminator)
+        return -21;
+
+    return 0;
+}
+
+static int mc_get_spec(
+    ef2_u32 port,
+    ef2_storage_device_info *info,
+    ef2_s32 *terminator_result)
+{
+    ef2_u8 tx[13];
+    ef2_u8 rx[13];
+    int result;
+    int term_result;
+
+    term_result =
+        mc_set_terminator(port, 0x5Au);
+
+    if (terminator_result != (ef2_s32 *)0)
+        *terminator_result = term_result;
+
+    clear_bytes(tx, sizeof(tx));
+    clear_bytes(rx, sizeof(rx));
+
     tx[0] = 0x81u;
     tx[1] = 0x26u;
 
     result = ef2_storage_sio2_exchange(
-        port, MC_CTRL1, MC_CTRL2, 0u,
-        tx, sizeof(tx), rx, sizeof(rx), 20000u);
+        port,
+        MC_CTRL1,
+        MC_CTRL2,
+        0u,
+        tx,
+        sizeof(tx),
+        rx,
+        sizeof(rx),
+        20000u);
+
     if (result < 0)
         return result;
-    if (rx[12] != 0x5Au)
+
+    /*
+     * A freshly reset card can still use the standard 0x55 terminator if
+     * SET_TERMINATOR was not accepted.  The EDC below is the stronger
+     * geometry validation; accept both known ready terminators here.
+     */
+    if (rx[12] != 0x5Au &&
+        rx[12] != 0x55u)
         return -10;
+
     if (xor_edc(&rx[3], 8u) != rx[11])
         return -11;
 
-    info->page_size = (ef2_u32)rx[3] | ((ef2_u32)rx[4] << 8);
-    info->erase_block_pages = (ef2_u32)rx[5] | ((ef2_u32)rx[6] << 8);
-    info->page_count = (ef2_u32)rx[7] | ((ef2_u32)rx[8] << 8) |
-        ((ef2_u32)rx[9] << 16) | ((ef2_u32)rx[10] << 24);
+    info->card_flags = rx[2];
+    info->page_size =
+        (ef2_u32)rx[3] |
+        ((ef2_u32)rx[4] << 8);
+    info->erase_block_pages =
+        (ef2_u32)rx[5] |
+        ((ef2_u32)rx[6] << 8);
+    info->page_count =
+        (ef2_u32)rx[7] |
+        ((ef2_u32)rx[8] << 8) |
+        ((ef2_u32)rx[9] << 16) |
+        ((ef2_u32)rx[10] << 24);
 
-    if (info->page_size == 0u || info->page_count == 0u)
+    if (info->page_size == 0u ||
+        info->page_count == 0u)
         return -12;
+
     return 0;
 }
 
@@ -554,49 +630,151 @@ static int mx_write_sector(ef2_u32 sector,const ef2_u8 data[512])
     return 0;
 }
 
-int ef2_storage_backend_scan(ef2_storage_device_info *devices,ef2_u32 capacity,ef2_u32 *count)
+int ef2_storage_backend_scan(
+    ef2_storage_device_info *devices,
+    ef2_u32 capacity,
+    ef2_u32 *count,
+    ef2_storage_scan_diag *diag)
 {
-    ef2_u32 port,found=0u;
-    if(devices==(ef2_storage_device_info *)0||count==(ef2_u32 *)0||capacity==0u)return -1;
-    for(port=2u;port<=3u&&found<capacity;++port){
-        ef2_storage_device_info info;int mmce_result,mc_result;
-        clear_bytes(&info,sizeof(info));info.physical_port=port;
-        mmce_result=mmce_ping(port,&info);
-        if(mmce_result==0){
-            info.kind=EF2_STORAGE_KIND_MMCE;
-            info.capabilities=EF2_STORAGE_CAP_MEMORY_CARD|EF2_STORAGE_CAP_FILESYSTEM|EF2_STORAGE_CAP_VIRTUAL_CARDS|EF2_STORAGE_CAP_GAME_ID;
-            mc_result = mc_get_spec(port, &info);
+    ef2_u32 port;
+    ef2_u32 found = 0u;
+
+    if (devices == (ef2_storage_device_info *)0 ||
+        count == (ef2_u32 *)0 ||
+        diag == (ef2_storage_scan_diag *)0 ||
+        capacity == 0u)
+        return -1;
+
+    diag->mmce_result[0] = -127;
+    diag->mmce_result[1] = -127;
+    diag->mc_terminator_result[0] = -127;
+    diag->mc_terminator_result[1] = -127;
+    diag->mc_geometry_result[0] = -127;
+    diag->mc_geometry_result[1] = -127;
+    diag->mx4sio_result = -127;
+
+    for (port = 2u;
+         port <= 3u && found < capacity;
+         ++port) {
+        ef2_storage_device_info info;
+        ef2_u32 logical_port = port - 2u;
+        ef2_s32 term_result = -127;
+        int mmce_result;
+        int mc_result;
+
+        clear_bytes(&info, sizeof(info));
+        info.physical_port = port;
+
+        mmce_result =
+            mmce_ping(port, &info);
+        diag->mmce_result[logical_port] =
+            mmce_result;
+
+        if (mmce_result == 0) {
+            info.kind = EF2_STORAGE_KIND_MMCE;
+            info.capabilities =
+                EF2_STORAGE_CAP_MEMORY_CARD |
+                EF2_STORAGE_CAP_FILESYSTEM |
+                EF2_STORAGE_CAP_VIRTUAL_CARDS |
+                EF2_STORAGE_CAP_GAME_ID;
+
+            mc_result =
+                mc_get_spec(
+                    port,
+                    &info,
+                    &term_result);
+
+            diag->mc_terminator_result[logical_port] =
+                term_result;
+            diag->mc_geometry_result[logical_port] =
+                mc_result;
+
             if (mc_result == 0)
                 info.capabilities |=
                     EF2_STORAGE_CAP_GEOMETRY;
-            {int v=mmce_get_u16(port,0x03u);info.current_card=v<0?0u:(ef2_u32)v;}
-            {int v=mmce_get_u16(port,0x05u);info.current_channel=v<0?0u:(ef2_u32)v;}
-            {int v=mmce_get_u16(port,0x02u);info.status=v<0?0u:(ef2_u32)v;}
-            copy_device_info(&devices[found], &info);
+
+            {
+                int value =
+                    mmce_get_u16(port, 0x03u);
+                info.current_card =
+                    value < 0 ? 0u : (ef2_u32)value;
+            }
+            {
+                int value =
+                    mmce_get_u16(port, 0x05u);
+                info.current_channel =
+                    value < 0 ? 0u : (ef2_u32)value;
+            }
+            {
+                int value =
+                    mmce_get_u16(port, 0x02u);
+                info.status =
+                    value < 0 ? 0u : (ef2_u32)value;
+            }
+
+            copy_device_info(
+                &devices[found],
+                &info);
             ++found;
             continue;
         }
-        mc_result=mc_get_spec(port,&info);
-        if(mc_result==0){
-            info.kind=EF2_STORAGE_KIND_PS2_MEMORY_CARD;
-            info.capabilities=EF2_STORAGE_CAP_MEMORY_CARD|EF2_STORAGE_CAP_GEOMETRY;
-            copy_device_info(&devices[found], &info);
+
+        mc_result =
+            mc_get_spec(
+                port,
+                &info,
+                &term_result);
+
+        diag->mc_terminator_result[logical_port] =
+            term_result;
+        diag->mc_geometry_result[logical_port] =
+            mc_result;
+
+        if (mc_result == 0) {
+            info.kind =
+                EF2_STORAGE_KIND_PS2_MEMORY_CARD;
+            info.capabilities =
+                EF2_STORAGE_CAP_MEMORY_CARD |
+                EF2_STORAGE_CAP_GEOMETRY;
+
+            copy_device_info(
+                &devices[found],
+                &info);
             ++found;
             continue;
         }
-        if(port==MX_PORT&&mx_initialize()==0){
-            clear_bytes(&info,sizeof(info));
-            info.kind=EF2_STORAGE_KIND_MX4SIO;
-            info.capabilities=EF2_STORAGE_CAP_BLOCK_READ|EF2_STORAGE_CAP_BLOCK_WRITE;
-            info.physical_port=MX_PORT;
-            info.sector_size=512u;
-            info.sector_count=g_mx_sector_count;
-            info.product_id=g_mx_card_type;
-            copy_device_info(&devices[found], &info);
-            ++found;
+
+        if (port == MX_PORT) {
+            int mx_result =
+                mx_initialize();
+
+            diag->mx4sio_result =
+                mx_result;
+
+            if (mx_result == 0) {
+                clear_bytes(&info, sizeof(info));
+                info.kind =
+                    EF2_STORAGE_KIND_MX4SIO;
+                info.capabilities =
+                    EF2_STORAGE_CAP_BLOCK_READ |
+                    EF2_STORAGE_CAP_BLOCK_WRITE;
+                info.physical_port = MX_PORT;
+                info.sector_size = 512u;
+                info.sector_count =
+                    g_mx_sector_count;
+                info.product_id =
+                    g_mx_card_type;
+
+                copy_device_info(
+                    &devices[found],
+                    &info);
+                ++found;
+            }
         }
     }
-    *count=found;return 0;
+
+    *count = found;
+    return 0;
 }
 
 int ef2_storage_backend_read_sector(const ef2_storage_device_info *device,ef2_u32 sector,ef2_u8 data[EF2_STORAGE_IO_CHUNK])

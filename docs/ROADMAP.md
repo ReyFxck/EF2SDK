@@ -81,7 +81,7 @@
 - [x] MMCE open/close/read/write/lseek filesystem subset
 - [x] MX4SIO SD/MMC initialization + capacity discovery
 - [x] MX4SIO 512-byte sector read/write API (PIO-first)
-- [ ] validate native MC/MMCE/MX4SIO backends on their respective hardware/emulation
+- [ ] validate native MC/MMCE/MX4SIO backends on their respective hardware/emulation (alpha.47 loaded/scanned in NetherSX2 but returned zero devices; alpha.48 fixes native-card terminator negotiation and adds per-backend probe diagnostics)
 - [ ] shared SIO2 broker for concurrent pad/storage calls from multiple EE threads
 - [ ] unified VFS mount layer over MC/MMCE/MX4SIO
 - [ ] USB mass storage path

@@ -51,15 +51,24 @@ typedef struct {
     ef2_u32 protocol_version;
     ef2_u32 product_id;
     ef2_u32 product_revision;
+    ef2_u32 card_flags;
     ef2_u32 current_card;
     ef2_u32 current_channel;
     ef2_u32 status;
 } ef2_storage_device_info;
 
+typedef struct {
+    ef2_s32 mmce_result[2];
+    ef2_s32 mc_terminator_result[2];
+    ef2_s32 mc_geometry_result[2];
+    ef2_s32 mx4sio_result;
+} ef2_storage_scan_diag;
+
 int ef2_storage_init(void);
 int ef2_storage_scan(void);
 ef2_u32 ef2_storage_get_device_count(void);
 int ef2_storage_get_device(ef2_u32 index, ef2_storage_device_info *info);
+int ef2_storage_get_scan_diag(ef2_storage_scan_diag *diag);
 
 int ef2_storage_read_sectors(ef2_u32 index, ef2_u32 sector, void *buffer, ef2_u32 count);
 int ef2_storage_write_sectors(ef2_u32 index, ef2_u32 sector, const void *buffer, ef2_u32 count);

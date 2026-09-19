@@ -9,6 +9,7 @@ static ef2_sif_rpc_client g_storage_client;
 static ef2_storage_rpc_request g_storage_request EF2_ALIGN(64);
 static ef2_storage_rpc_reply g_storage_reply EF2_ALIGN(64);
 static ef2_u32 g_storage_device_count;
+static ef2_storage_scan_diag g_storage_scan_diag;
 static ef2_s32 g_storage_bound;
 
 static void storage_zero(void *ptr, ef2_u32 size)
@@ -45,6 +46,7 @@ static int storage_rpc(ef2_s32 function)
     if (result < 0)
         return result;
     g_storage_device_count = g_storage_reply.device_count;
+    g_storage_scan_diag = g_storage_reply.scan_diag;
     return g_storage_reply.result;
 }
 
@@ -107,6 +109,15 @@ int ef2_storage_scan(void)
 ef2_u32 ef2_storage_get_device_count(void)
 {
     return g_storage_device_count;
+}
+
+int ef2_storage_get_scan_diag(ef2_storage_scan_diag *diag)
+{
+    if (diag == (ef2_storage_scan_diag *)0)
+        return -1;
+
+    *diag = g_storage_scan_diag;
+    return 0;
 }
 
 int ef2_storage_get_device(ef2_u32 index, ef2_storage_device_info *info)
