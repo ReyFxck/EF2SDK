@@ -131,3 +131,20 @@ Native-card discovery now sets `ef2_storage_device_info.formatted`:
 The scan diagnostic also exposes the page-zero format probe result for both
 ports. No media write is required to distinguish formatted from unformatted
 cards.
+
+
+## Alpha.50 NetherSX2 validation
+
+Alpha.50 was validated in NetherSX2 on 2026-09-19 with two intentionally
+unformatted 8 MiB virtual PS2 memory cards. Both cards remained directly
+detectable with 512-byte pages, 16-page erase blocks and 16384 pages, and the
+bounded 32-byte-chunk page reader no longer reproduced Alpha.49's black
+screen.
+
+The page-zero format probe completed on both ports and correctly reported
+`formatted=0` / `fmt=0`. The cards were deliberately unformatted, so this
+confirms the negative-format state rather than a false negative. The smoke
+continued through pad/audio and reached the deliberate crash-handler trap.
+
+Formatted-card detection (`formatted=1`) remains to be explicitly validated
+with a formatted virtual card.
